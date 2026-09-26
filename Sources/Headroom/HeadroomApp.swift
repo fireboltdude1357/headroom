@@ -164,8 +164,6 @@ struct ExampleBanner: View {
 
 struct EmptyState: View {
     @Environment(AppModel.self) private var model
-    /// Snapshot mode passes false to render the access step.
-    var hasFullDiskAccess = FullDiskAccess.isGranted
 
     var body: some View {
         VStack(spacing: 16) {
@@ -181,7 +179,7 @@ struct EmptyState: View {
                     Text(progress).foregroundStyle(.secondary)
                 }
             } else {
-                if !hasFullDiskAccess { AccessStep() }
+                if !model.hasFullDiskAccess { AccessStep() }
                 HStack {
                     Button("Scan this Mac") { Task { await model.runScan() } }.buttonStyle(.borderedProminent)
                     Button("Try example data") { model.loadExample() }.disabled(model.isBusy)

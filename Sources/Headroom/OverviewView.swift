@@ -84,7 +84,7 @@ private struct AccessNotice: View {
             Label("Some folders couldn't be read", systemImage: "lock")
                 .font(.headline)
             Text(needsFullDiskAccess
-                 ? "macOS asks separately for each of these, so Headroom skips them. Turn on Full Disk Access once to include them all."
+                 ? "Headroom skips these without Full Disk Access, so totals are lower than real usage. Turn it on once to include them all."
                  : "Some folders couldn't be read, so their sizes are lower bounds.")
                 .foregroundStyle(.secondary)
             ForEach(unreadable.prefix(6), id: \.self) { url in

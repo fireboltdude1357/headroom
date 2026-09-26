@@ -79,7 +79,10 @@ public struct Scanner: Sendable {
         progress("Looking for project build folders")
         var finder = projectFinder
         if !fullDiskAccess {
-            unreadable += finder.roots.filter { Catalog.needsFullDiskAccess($0, home: home) && DiskMeasure.exists($0) }
+            // attributesOfItem doesn't follow symlinks, so it never looks inside a protected folder.
+            unreadable += finder.roots.filter {
+                Catalog.needsFullDiskAccess($0, home: home) && (try? FileManager.default.attributesOfItem(atPath: $0.path)) != nil
+            }
             finder.roots.removeAll { Catalog.needsFullDiskAccess($0, home: home) }
         }
         for candidate in finder.candidates() { jobs.append(.project(candidate, finder)) }

@@ -19,7 +19,9 @@ enum SnapshotRenderer {
         }
 
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
-            render(EmptyState(hasFullDiskAccess: false).environment(AppModel()).frame(width: 860, height: 620), size: nil,
+            let welcome = AppModel()
+            welcome.hasFullDiskAccess = false
+            render(EmptyState().environment(welcome).frame(width: 860, height: 620), size: nil,
                    appearance: appearance, to: outputDir.appending(path: "welcome-\(suffix).png"))
 
             let model = AppModel()

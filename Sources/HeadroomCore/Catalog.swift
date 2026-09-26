@@ -180,10 +180,13 @@ public enum Catalog {
         protectedPrefixes.contains { relativePath == $0 || relativePath.hasPrefix($0 + "/") }
     }
 
-    /// Checks resolved paths too, so a ~/code symlink into Documents counts as Documents.
+    /// A ~/code symlink into Documents counts as Documents. The link is read, not followed, because
+    /// even looking up a path inside Documents can raise the prompt.
     public static func needsFullDiskAccess(_ url: URL, home: URL) -> Bool {
         let homes = Set([home, home.resolvingSymlinksInPath()].map { $0.standardizedFileURL.path + "/" })
-        return [url, url.resolvingSymlinksInPath()].contains { candidate in
+        let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
+            .map { $0.hasPrefix("/") ? URL(filePath: $0) : url.deletingLastPathComponent().appending(path: $0) }
+        return ([url] + (target.map { [$0] } ?? [])).contains { candidate in
             let path = candidate.standardizedFileURL.path
             return homes.contains { path.hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
         }

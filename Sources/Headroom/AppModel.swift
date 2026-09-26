@@ -33,6 +33,8 @@ final class AppModel {
     /// Findings removed by a simulated cleanup, keyed by record id, so Restore can put them back.
     private var exampleRemoved: [TrashRecord.ID: Finding] = [:]
     var isExample = false
+    /// Read once at launch; macOS only applies a Full Disk Access change after a relaunch.
+    var hasFullDiskAccess = FullDiskAccess.isGranted
 
     var sidebar: SidebarItem? = .overview
     var selected: Set<String> = []

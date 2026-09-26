@@ -283,5 +283,9 @@ struct FolderTrash: Trasher {
         let link = box.root.appending(path: "code")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: box.root.appending(path: "Documents/code"))
         #expect(Catalog.needsFullDiskAccess(link, home: box.root))
+
+        let relative = box.root.appending(path: "work")
+        try FileManager.default.createSymbolicLink(atPath: relative.path, withDestinationPath: "Documents/code")
+        #expect(Catalog.needsFullDiskAccess(relative, home: box.root))
     }
 }
