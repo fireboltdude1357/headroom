@@ -21,7 +21,7 @@ It never makes network requests. Full Disk Access is optional. Without it, Headr
 | `Sources/HeadroomCore` | Scanning, the source catalog, project detection, cleanup, the Trash log and history. No UI. |
 | `Sources/Headroom` | The SwiftUI app: main window, menu bar panel and settings. |
 | `Tests/HeadroomCoreTests` | Swift Testing tests for detection, cleanup safety checks and trends. |
-| `scripts/bundle.sh` | Builds a universal, ad-hoc signed `dist/Headroom.app` and `dist/Headroom.dmg`. |
+| `scripts/bundle.sh` | Builds a universal `dist/Headroom.app` and `dist/Headroom.dmg`: signed, notarized and stapled once `setup-signing.sh` has run, ad-hoc signed otherwise. |
 | `scripts/make-icon.swift` | Regenerates `Resources/AppIcon.icns`. |
 
 ## Build
@@ -34,6 +34,14 @@ swift run Headroom         # run unbundled (notifications and login item are dis
 scripts/bundle.sh          # dist/Headroom.app and dist/Headroom.dmg
 open dist/Headroom.app
 ```
+
+`bundle.sh` ad-hoc signs by default, so Gatekeeper blocks a downloaded copy until the user clicks Open Anyway in System Settings > Privacy & Security. A release that opens normally needs a Developer ID Application certificate. Only the Apple Developer account holder can create one (Xcode > Settings > Accounts > Manage Certificates). Then run the setup once in Terminal on that Mac:
+
+```sh
+APPLE_ID=you@example.com scripts/setup-signing.sh
+```
+
+It copies the identity into a separate keychain that `bundle.sh` can unlock over SSH, and stores notarization credentials there. From then on `bundle.sh` signs, notarizes and staples on its own.
 
 `swift run Headroom --snapshot /tmp/shots` renders every screen with example data to PNGs, in light and dark mode.
 
