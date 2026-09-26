@@ -154,9 +154,10 @@ public enum Catalog {
               paths: ["Library/iTunes/iPad Software Updates"]),
     ]
 
-    /// Locations macOS hides from apps without Full Disk Access. Headroom skips them rather than trigger
-    /// a permission prompt for every sandboxed app.
+    /// Locations macOS guards behind a privacy prompt, one prompt per folder or app. Without Full Disk
+    /// Access Headroom skips them, so the only permission it ever asks for is Full Disk Access itself.
     public static let protectedPrefixes = [
+        "Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Library/Mobile Documents",
         "Library/Containers", "Library/Group Containers", "Library/Mail", "Library/Messages",
         "Library/Safari", "Library/Application Support/MobileSync",
     ]
@@ -174,7 +175,17 @@ public enum Catalog {
             }
     }
 
+    /// `relativePath` is relative to the home folder, like "Documents/code".
     public static func needsFullDiskAccess(_ relativePath: String) -> Bool {
-        protectedPrefixes.contains { relativePath.hasPrefix($0) }
+        protectedPrefixes.contains { relativePath == $0 || relativePath.hasPrefix($0 + "/") }
+    }
+
+    /// Checks resolved paths too, so a ~/code symlink into Documents counts as Documents.
+    public static func needsFullDiskAccess(_ url: URL, home: URL) -> Bool {
+        let homes = Set([home, home.resolvingSymlinksInPath()].map { $0.standardizedFileURL.path + "/" })
+        return [url, url.resolvingSymlinksInPath()].contains { candidate in
+            let path = candidate.standardizedFileURL.path
+            return homes.contains { path.hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
+        }
     }
 }

@@ -77,7 +77,12 @@ public struct Scanner: Sendable {
         }
 
         progress("Looking for project build folders")
-        for candidate in projectFinder.candidates() { jobs.append(.project(candidate, projectFinder)) }
+        var finder = projectFinder
+        if !fullDiskAccess {
+            unreadable += finder.roots.filter { Catalog.needsFullDiskAccess($0, home: home) && DiskMeasure.exists($0) }
+            finder.roots.removeAll { Catalog.needsFullDiskAccess($0, home: home) }
+        }
+        for candidate in finder.candidates() { jobs.append(.project(candidate, finder)) }
 
         if fullDiskAccess {
             for (finding, _) in discoveries.deviceBackups() { jobs.append(.finding(finding)) }
@@ -95,7 +100,9 @@ public struct Scanner: Sendable {
             jobs.append(.appFolder(folder))
         }
 
-        var findings = discoveries.oldInstallers().map { finding in
+        let downloads = home.appending(path: "Downloads", directoryHint: .isDirectory)
+        if !fullDiskAccess && DiskMeasure.exists(downloads) { unreadable.append(downloads) }
+        var findings = (fullDiskAccess ? discoveries.oldInstallers() : []).map { finding in
             var finding = finding
             finding.fileNumbers = Self.fileNumbers(finding.paths)
             return finding

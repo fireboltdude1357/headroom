@@ -267,3 +267,21 @@ struct FolderTrash: Trasher {
         #expect(backups[0].0.warning != nil)
     }
 }
+
+@Suite struct FullDiskAccessTests {
+    @Test func coversPromptingFoldersWithoutMatchingLookalikes() throws {
+        let home = URL(filePath: "/Users/me")
+        #expect(Catalog.needsFullDiskAccess(home.appending(path: "Documents/code"), home: home))
+        #expect(Catalog.needsFullDiskAccess(home.appending(path: "Library/Mobile Documents"), home: home))
+        #expect(!Catalog.needsFullDiskAccess(home.appending(path: "DocumentsArchive"), home: home))
+        #expect(!Catalog.needsFullDiskAccess(home.appending(path: "code"), home: home))
+    }
+
+    @Test func followsSymlinksIntoProtectedFolders() throws {
+        let box = try Sandbox()
+        try box.file("Documents/code/readme.md")
+        let link = box.root.appending(path: "code")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: box.root.appending(path: "Documents/code"))
+        #expect(Catalog.needsFullDiskAccess(link, home: box.root))
+    }
+}

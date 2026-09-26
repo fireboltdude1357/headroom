@@ -19,6 +19,9 @@ enum SnapshotRenderer {
         }
 
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            render(EmptyState(hasFullDiskAccess: false).environment(AppModel()).frame(width: 860, height: 620), size: nil,
+                   appearance: appearance, to: outputDir.appending(path: "welcome-\(suffix).png"))
+
             let model = AppModel()
             model.loadExample()
             func shot(_ name: String) { renderMain(model, appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png")) }

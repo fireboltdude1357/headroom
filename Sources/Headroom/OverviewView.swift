@@ -84,7 +84,7 @@ private struct AccessNotice: View {
             Label("Some folders couldn't be read", systemImage: "lock")
                 .font(.headline)
             Text(needsFullDiskAccess
-                 ? "Headroom needs Full Disk Access to measure these. Totals are lower than the real usage."
+                 ? "macOS asks separately for each of these, so Headroom skips them. Turn on Full Disk Access once to include them all."
                  : "Some folders couldn't be read, so their sizes are lower bounds.")
                 .foregroundStyle(.secondary)
             ForEach(unreadable.prefix(6), id: \.self) { url in
@@ -96,11 +96,7 @@ private struct AccessNotice: View {
                 Text("and \(unreadable.count - 6) more").font(.callout).foregroundStyle(.secondary)
             }
             if needsFullDiskAccess {
-                Button("Open Full Disk Access settings") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+                Button("Open Full Disk Access settings") { FullDiskAccess.openSettings() }
             }
         }
         .padding(16)
@@ -194,5 +190,17 @@ private struct GridSection: View {
         let squares = slices.reduce(0) { $0 + Int((Double($1.1) / Double(squareBytes)).rounded(.up)) }
         let rows = (squares + columns - 1) / columns
         return CGFloat(rows) * (cell + gap)
+    }
+}
+
+/// Full Disk Access is the one permission Headroom asks for. It replaces macOS's separate prompts
+/// for Desktop, Documents, Downloads, iCloud Drive, Photos and other apps' data.
+enum FullDiskAccess {
+    static var isGranted: Bool { Scanner.hasFullDiskAccess(home: FileManager.default.homeDirectoryForCurrentUser) }
+
+    static func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

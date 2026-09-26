@@ -164,6 +164,8 @@ struct ExampleBanner: View {
 
 struct EmptyState: View {
     @Environment(AppModel.self) private var model
+    /// Snapshot mode passes false to render the access step.
+    var hasFullDiskAccess = FullDiskAccess.isGranted
 
     var body: some View {
         VStack(spacing: 16) {
@@ -179,6 +181,7 @@ struct EmptyState: View {
                     Text(progress).foregroundStyle(.secondary)
                 }
             } else {
+                if !hasFullDiskAccess { AccessStep() }
                 HStack {
                     Button("Scan this Mac") { Task { await model.runScan() } }.buttonStyle(.borderedProminent)
                     Button("Try example data") { model.loadExample() }.disabled(model.isBusy)
@@ -187,5 +190,25 @@ struct EmptyState: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Asks for Full Disk Access once, up front, instead of letting macOS prompt folder by folder.
+private struct AccessStep: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Give Headroom Full Disk Access", systemImage: "lock.open").font(.headline)
+            Text("One switch covers Desktop, Documents, Downloads, iCloud Drive and other apps' data, so macOS won't ask about each folder. Without it, Headroom skips those folders.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Turn on Headroom in the list, then choose Quit & Reopen. If it isn't listed, click + and pick Headroom from Applications.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Full Disk Access settings") { FullDiskAccess.openSettings() }
+        }
+        .padding(16)
+        .frame(maxWidth: 460, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 }
