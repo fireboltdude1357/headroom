@@ -35,12 +35,13 @@ scripts/bundle.sh          # dist/Headroom.app and dist/Headroom.dmg
 open dist/Headroom.app
 ```
 
-`bundle.sh` ad-hoc signs by default, so Gatekeeper blocks a downloaded copy until the user clicks Open Anyway in System Settings > Privacy & Security. For a release that opens normally, the Apple Developer account holder creates a Developer ID Application certificate (Xcode > Settings > Accounts > Manage Certificates). Store notary credentials once, then build:
+`bundle.sh` ad-hoc signs by default, so Gatekeeper blocks a downloaded copy until the user clicks Open Anyway in System Settings > Privacy & Security. A release that opens normally needs a Developer ID Application certificate. Only the Apple Developer account holder can create one (Xcode > Settings > Accounts > Manage Certificates). Then run the setup once in Terminal on that Mac:
 
 ```sh
-xcrun notarytool store-credentials headroom-notary --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer-id>
-SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=headroom-notary scripts/bundle.sh
+APPLE_ID=you@example.com scripts/setup-signing.sh
 ```
+
+It copies the identity into a separate keychain that `bundle.sh` can unlock over SSH, and stores notarization credentials there. From then on `bundle.sh` signs, notarizes and staples on its own.
 
 `swift run Headroom --snapshot /tmp/shots` renders every screen with example data to PNGs, in light and dark mode.
 

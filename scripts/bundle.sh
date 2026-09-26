@@ -1,16 +1,24 @@
 #!/bin/bash
 # Builds a universal Headroom.app and Headroom.dmg into dist/. Run on a Mac with Xcode.
 #
-# Without SIGN_IDENTITY the app is ad-hoc signed, and Gatekeeper blocks it on other Macs until
-# the user clicks Open Anyway in System Settings > Privacy & Security. To ship a build that
-# opens normally, set:
-#   SIGN_IDENTITY   a "Developer ID Application: Name (TEAMID)" identity in the keychain
-#   NOTARY_PROFILE  a notarytool keychain profile, made once with `xcrun notarytool store-credentials`
-# The script then signs with the hardened runtime, notarizes the DMG and staples the ticket.
+# If scripts/setup-signing.sh has been run on this Mac, the build is signed with its Developer ID,
+# notarized and stapled, which also works over SSH. Otherwise the app is ad-hoc signed, and
+# Gatekeeper blocks it on other Macs until the user clicks Open Anyway in System Settings >
+# Privacy & Security. SIGN_IDENTITY and NOTARY_PROFILE override what the setup found.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${VERSION:-1.0.0}"
+
+SIGNING_KEYCHAIN="$HOME/Library/Keychains/headroom-signing.keychain-db"
+KEYCHAIN_ARGS=()
+if [ -f "$SIGNING_KEYCHAIN" ]; then
+    security unlock-keychain -p "$(cat "$HOME/.config/headroom/signing-keychain-password")" "$SIGNING_KEYCHAIN"
+    KEYCHAIN_ARGS=(--keychain "$SIGNING_KEYCHAIN")
+    SIGN_IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" \
+        | awk -F'"' '/Developer ID Application/ { print $2; exit }')}"
+    NOTARY_PROFILE="${NOTARY_PROFILE:-headroom-notary}"
+fi
 APP="dist/Headroom.app"
 
 swift build -c release --arch arm64 --arch x86_64
@@ -43,7 +51,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 if [ -n "${SIGN_IDENTITY:-}" ]; then
-    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} "$APP"
 else
     codesign --force --sign - --timestamp=none "$APP"
 fi
@@ -55,9 +63,9 @@ hdiutil create -quiet -volname Headroom -srcfolder dist/dmg -format UDZO dist/He
 rm -rf dist/dmg
 
 if [ -n "${SIGN_IDENTITY:-}" ]; then
-    codesign --force --timestamp --sign "$SIGN_IDENTITY" dist/Headroom.dmg
+    codesign --force --timestamp --sign "$SIGN_IDENTITY" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} dist/Headroom.dmg
     if [ -n "${NOTARY_PROFILE:-}" ]; then
-        xcrun notarytool submit dist/Headroom.dmg --keychain-profile "$NOTARY_PROFILE" --wait
+        xcrun notarytool submit dist/Headroom.dmg --keychain-profile "$NOTARY_PROFILE" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} --wait
         xcrun stapler staple dist/Headroom.dmg
         spctl --assess --type open --context context:primary-signature --verbose dist/Headroom.dmg
     fi
