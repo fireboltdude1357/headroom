@@ -47,6 +47,7 @@ struct FindingRow: View {
                         Text(finding.title).fontWeight(.medium)
                         Tag(text: finding.consequence.shortLabel, color: finding.consequence.color)
                         if finding.isUntouched { Tag(text: "Untouched", color: .orange) }
+                        if finding.isPartial { Tag(text: "Partial", color: .secondary).help("Part of this couldn't be read, so the size is a lower bound.") }
                     }
                     HStack(spacing: 0) {
                         Text(finding.owner)
@@ -58,7 +59,7 @@ struct FindingRow: View {
                 }
                 Spacer(minLength: 12)
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(finding.bytes.formattedBytes).monospacedDigit()
+                    Text((finding.isPartial ? "at least " : "") + finding.bytes.formattedBytes).monospacedDigit()
                     ZStack(alignment: .leading) {
                         Capsule().fill(.quaternary)
                         Capsule().fill(finding.category.color.opacity(0.8)).frame(width: max(2, 90 * fraction))

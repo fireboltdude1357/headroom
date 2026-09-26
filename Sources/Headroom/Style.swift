@@ -55,9 +55,8 @@ struct Tag: View {
     }
 }
 
-/// "in about 3 weeks", or nil when free space isn't shrinking.
-func fillPhrase(_ date: Date?) -> String? {
-    guard let date else { return nil }
+/// "in about 3 weeks".
+func fillPhrase(_ date: Date) -> String {
     let formatter = RelativeDateTimeFormatter()
     formatter.unitsStyle = .full
     formatter.dateTimeStyle = .numeric

@@ -1,5 +1,6 @@
 import AppKit
 import HeadroomCore
+import Observation
 import ServiceManagement
 import UserNotifications
 
@@ -14,19 +15,23 @@ enum Prefs {
     }
 }
 
-/// Weekly rescans, the login item and the low space notification.
+/// Weekly rescans, the login item, the hourly free-space check and the low space notification.
 /// Notification and login item calls only happen inside a real bundle; they crash under `swift run`.
-@MainActor
+@Observable @MainActor
 final class BackgroundTasks {
     private var scheduler: NSBackgroundActivityScheduler?
+    private var hourlyCheck: Task<Void, Never>?
     /// Set by the app so the scheduler can start a scan.
-    var runScan: (@MainActor () async -> Void)?
+    @ObservationIgnored var runScan: (@MainActor () async -> Void)?
+    /// One line for Settings and the menu panel when the login item needs the user's help.
+    var loginItemNotice: String?
 
     private var isBundled: Bool { Bundle.main.bundleIdentifier != nil }
 
-    /// Starts or stops the weekly scan and login item to match the current preferences.
+    /// Starts or stops the weekly scan, login item and hourly check to match the current preferences.
     func refresh() {
-        let weekly = UserDefaults.standard.bool(forKey: Prefs.weeklyCheck)
+        let defaults = UserDefaults.standard
+        let weekly = defaults.bool(forKey: Prefs.weeklyCheck)
         if weekly, scheduler == nil {
             let scheduler = NSBackgroundActivityScheduler(identifier: "headroom.weekly-check")
             scheduler.repeats = true
@@ -44,8 +49,44 @@ final class BackgroundTasks {
             scheduler?.invalidate()
             scheduler = nil
         }
+        refreshLoginItem(enabled: weekly)
+
+        let alert = defaults.bool(forKey: Prefs.lowSpaceAlert)
+        if alert, hourlyCheck == nil {
+            hourlyCheck = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(3600))
+                    guard !Task.isCancelled, let volume = VolumeInfo.current() else { continue }
+                    self?.afterScan(volume)
+                }
+            }
+        } else if !alert {
+            hourlyCheck?.cancel()
+            hourlyCheck = nil
+        }
+    }
+
+    private func refreshLoginItem(enabled: Bool) {
         guard isBundled else { return }
-        if weekly { try? SMAppService.mainApp.register() } else { try? SMAppService.mainApp.unregister() }
+        let service = SMAppService.mainApp
+        guard enabled else {
+            try? service.unregister()
+            loginItemNotice = nil
+            return
+        }
+        do {
+            try service.register()
+        } catch {
+            loginItemNotice = "Headroom couldn't register as a login item: \(error.localizedDescription)"
+            return
+        }
+        loginItemNotice = service.status == .requiresApproval
+            ? "Allow Headroom in System Settings > General > Login Items so the weekly check can run."
+            : nil
+    }
+
+    func openLoginItemsSettings() {
+        SMAppService.openSystemSettingsLoginItems()
     }
 
     /// Posts "Only 21 GB is free" when under 10%, at most once a day.
@@ -54,7 +95,6 @@ final class BackgroundTasks {
         guard defaults.bool(forKey: Prefs.lowSpaceAlert), volume.freeFraction < 0.10, isBundled else { return }
         let last = defaults.double(forKey: Prefs.lastLowSpaceAlert)
         guard Date.now.timeIntervalSince1970 - last > 24 * 3600 else { return }
-        defaults.set(Date.now.timeIntervalSince1970, forKey: Prefs.lastLowSpaceAlert)
 
         let center = UNUserNotificationCenter.current()
         let content = UNMutableNotificationContent()
@@ -63,7 +103,10 @@ final class BackgroundTasks {
         let request = UNNotificationRequest(identifier: "headroom.low-space", content: content, trigger: nil)
         Task {
             guard (try? await center.requestAuthorization(options: [.alert])) == true else { return }
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+                defaults.set(Date.now.timeIntervalSince1970, forKey: Prefs.lastLowSpaceAlert)
+            } catch {}
         }
     }
 }

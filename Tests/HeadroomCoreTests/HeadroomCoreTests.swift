@@ -52,10 +52,12 @@ struct FolderTrash: Trasher {
         try box.file("fake-rust/target/release/my-notes.txt") // "target" without Cargo's own files
         try box.file("py/pyproject.toml")
         try box.file("py/.venv/pyvenv.cfg")
+        try box.file("web/package.json")
+        try box.file("web/.next/BUILD_ID") // Next.js without a next.config file
 
         let found = ProjectFinder(roots: [box.root]).candidates()
         let names = Set(found.map { "\($0.project.lastPathComponent)/\($0.folder.lastPathComponent)" })
-        #expect(names == ["app/node_modules", "rusty/target", "py/.venv"])
+        #expect(names == ["app/node_modules", "rusty/target", "py/.venv", "web/.next"])
     }
 
     @Test func namesNestedProjectsAfterTheirRepository() throws {
@@ -108,6 +110,39 @@ struct FolderTrash: Trasher {
         let item = try finding(box, markers: [box.root.appending(path: "package.json")])
         let result = Cleaner(trasher: FolderTrash(folder: box.root.appending(path: "Trash"))) { _ in nil }.run(CleanupPlan([item]))
         #expect(result.skipped.map(\.reason) == [.markerMissing("package.json")])
+    }
+
+    @Test func skipsAFolderReplacedSinceTheScan() throws {
+        let box = try Sandbox()
+        var item = try finding(box)
+        item.fileNumbers = [item.paths[0].path: 1] // not the inode that's there now
+        let result = Cleaner(trasher: FolderTrash(folder: box.root.appending(path: "Trash"))) { _ in nil }.run(CleanupPlan([item]))
+        #expect(result.skipped.map(\.reason) == [.changed])
+        #expect(DiskMeasure.exists(item.paths[0]))
+    }
+
+    @Test func skipsLeftoversOfAReinstalledApp() throws {
+        let box = try Sandbox()
+        var item = try finding(box, blocking: ["com.example.gone"], consequence: .leftover)
+        item.category = .leftovers
+        let cleaner = Cleaner(trasher: FolderTrash(folder: box.root.appending(path: "Trash")), runningApp: { _ in nil },
+                              isAppInstalled: { $0 == "com.example.gone" })
+        #expect(cleaner.run(CleanupPlan([item])).skipped.map(\.reason) == [.reinstalled])
+    }
+
+    @Test func stopsWhenTheTrashLogCantBeSaved() throws {
+        let box = try Sandbox()
+        let first = try finding(box)
+        try box.file("other/blob")
+        var second = first
+        second.id = "second"
+        second.paths = [box.root.appending(path: "other")]
+        struct DiskFull: Error {}
+        let cleaner = Cleaner(trasher: FolderTrash(folder: box.root.appending(path: "Trash"))) { _ in nil }
+        let result = cleaner.run(CleanupPlan([first, second])) { _ in throw DiskFull() }
+        #expect(result.moved.count == 1)
+        #expect(result.logError != nil)
+        #expect(DiskMeasure.exists(box.root.appending(path: "other")))
     }
 
     @Test func neverPlansAppManagedData() throws {

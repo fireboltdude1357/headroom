@@ -10,7 +10,9 @@ struct OverviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     DiskSection(scan: scan)
-                    if !scan.hasFullDiskAccess { AccessNotice(unreadable: scan.unreadable) }
+                    if !scan.unreadable.isEmpty {
+                        AccessNotice(unreadable: scan.unreadable, needsFullDiskAccess: !scan.hasFullDiskAccess)
+                    }
                     if !model.insights.isEmpty { InsightsSection(insights: model.insights) }
                     GridSection(scan: scan)
                 }
@@ -56,10 +58,13 @@ private struct DiskSection: View {
                     Label(freeChangePhrase(change, since: previous.date),
                           systemImage: change < 0 ? "arrow.down.right" : "arrow.up.right")
                 }
-                if let phrase = fillPhrase(model.fillDate) {
-                    Label("At this rate, your disk is full \(phrase).", systemImage: "chart.line.downtrend.xyaxis")
-                } else if model.trendSnapshots.count >= 2 {
+                switch model.trend {
+                case let .full(date):
+                    Label("At this rate, your disk is full \(fillPhrase(date)).", systemImage: "chart.line.downtrend.xyaxis")
+                case .notShrinking:
                     Label("Free space isn't shrinking.", systemImage: "chart.line.flattrend.xyaxis")
+                case .notEnoughHistory:
+                    Label("Scan again in a day or two to see where free space is heading.", systemImage: "clock")
                 }
             }
             .font(.callout)
@@ -72,12 +77,15 @@ private struct DiskSection: View {
 
 private struct AccessNotice: View {
     var unreadable: [URL]
+    var needsFullDiskAccess: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Some locations couldn't be read", systemImage: "lock")
+            Label("Some folders couldn't be read", systemImage: "lock")
                 .font(.headline)
-            Text("Headroom needs Full Disk Access to measure these. Totals are lower than the real usage.")
+            Text(needsFullDiskAccess
+                 ? "Headroom needs Full Disk Access to measure these. Totals are lower than the real usage."
+                 : "Some folders couldn't be read, so their sizes are lower bounds.")
                 .foregroundStyle(.secondary)
             ForEach(unreadable.prefix(6), id: \.self) { url in
                 Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
@@ -87,9 +95,11 @@ private struct AccessNotice: View {
             if unreadable.count > 6 {
                 Text("and \(unreadable.count - 6) more").font(.callout).foregroundStyle(.secondary)
             }
-            Button("Open Full Disk Access settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                    NSWorkspace.shared.open(url)
+            if needsFullDiskAccess {
+                Button("Open Full Disk Access settings") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                        NSWorkspace.shared.open(url)
+                    }
                 }
             }
         }
@@ -111,7 +121,7 @@ private struct InsightsSection: View {
                     HStack {
                         Text(insight.message)
                         Spacer()
-                        Button(buttonTitle(insight.action)) { model.perform(insight.action) }
+                        Button(insight.action.buttonTitle) { model.perform(insight.action) }
                             .controlSize(.small)
                     }
                     .padding(.horizontal, 14)
@@ -120,13 +130,6 @@ private struct InsightsSection: View {
                 }
             }
             .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
-        }
-    }
-
-    private func buttonTitle(_ action: Insight.Action) -> String {
-        switch action {
-        case .review: "Review"
-        case .selectUntouchedProjects: "Select untouched"
         }
     }
 }
@@ -176,14 +179,18 @@ private struct GridSection: View {
                         }
                     }
                 }
+                .onAppear { width = proxy.size.width }
+                .onChange(of: proxy.size.width) { width = proxy.size.width }
             }
             .frame(height: gridHeight)
         }
     }
 
-    /// Height for the widest layout this section reaches (900 pt), so the grid never clips.
+    /// Measured width of the grid, so the height matches the number of rows it really needs.
+    @State private var width: CGFloat = 800
+
     private var gridHeight: CGFloat {
-        let columns = Int((852 + gap) / (cell + gap))
+        let columns = max(1, Int((width + gap) / (cell + gap)))
         let squares = slices.reduce(0) { $0 + Int((Double($1.1) / Double(squareBytes)).rounded(.up)) }
         let rows = (squares + columns - 1) / columns
         return CGFloat(rows) * (cell + gap)

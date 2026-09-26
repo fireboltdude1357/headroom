@@ -21,8 +21,10 @@ struct MenuBarView: View {
                     if let change = model.freeChange, let previous = model.previousSnapshot {
                         Text(freeChangePhrase(change, since: previous.date))
                     }
-                    if let phrase = fillPhrase(model.fillDate) {
-                        Text("At this rate, your disk is full \(phrase).")
+                    switch model.trend {
+                    case let .full(date): Text("At this rate, your disk is full \(fillPhrase(date)).")
+                    case .notShrinking: Text("Free space isn't shrinking.")
+                    case .notEnoughHistory: Text("Not enough history yet to see a trend.")
                     }
                 }
                 .font(.callout)
@@ -35,7 +37,7 @@ struct MenuBarView: View {
                         HStack(alignment: .firstTextBaseline) {
                             Text(insight.message).font(.callout)
                             Spacer(minLength: 8)
-                            Button("Show") { open(insight.action) }.controlSize(.small)
+                            Button(insight.action.buttonTitle) { open(insight.action) }.controlSize(.small)
                         }
                     }
                 }
@@ -49,12 +51,15 @@ struct MenuBarView: View {
                 Button(model.isScanning ? (model.scanProgress ?? "Scanning") : "Scan now") {
                     Task { await model.runScan() }
                 }
-                .disabled(model.isScanning)
+                .disabled(model.isBusy)
                 Spacer()
             }
 
             Toggle("Weekly check", isOn: $weeklyCheck)
             Toggle("Low space alert (under 10%)", isOn: $lowSpaceAlert)
+            if let notice = model.background.loginItemNotice {
+                LoginItemNotice(notice: notice)
+            }
 
             Divider()
 
@@ -69,6 +74,7 @@ struct MenuBarView: View {
         .padding(14)
         .frame(width: 320)
         .onChange(of: weeklyCheck) { model.background.refresh() }
+        .onChange(of: lowSpaceAlert) { model.background.refresh() }
     }
 
     private func open(_ action: Insight.Action?) {
@@ -90,6 +96,9 @@ struct SettingsView: View {
                 Toggle("Check for space to reclaim every week", isOn: $weeklyCheck)
                 Text("Turning this on also opens Headroom at login so the check can run.")
                     .font(.callout).foregroundStyle(.secondary)
+                if let notice = model.background.loginItemNotice {
+                    LoginItemNotice(notice: notice)
+                }
                 Toggle("Notify me when free space is under 10%", isOn: $lowSpaceAlert)
             }
             Section("About") {
@@ -100,5 +109,29 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 440)
         .onChange(of: weeklyCheck) { model.background.refresh() }
+        .onChange(of: lowSpaceAlert) { model.background.refresh() }
+    }
+}
+
+/// Shown when macOS wants the user to approve the login item, or registration failed.
+struct LoginItemNotice: View {
+    @Environment(AppModel.self) private var model
+    var notice: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(notice, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+            Button("Open Login Items") { model.background.openLoginItemsSettings() }
+        }
+        .font(.callout)
+    }
+}
+
+extension Insight.Action {
+    var buttonTitle: String {
+        switch self {
+        case .review: "Review"
+        case .selectUntouchedProjects: "Select untouched"
+        }
     }
 }

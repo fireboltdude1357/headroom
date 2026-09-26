@@ -15,6 +15,8 @@ struct CleanupSummary: Identifiable {
     let id = UUID()
     var moved: [TrashRecord]
     var skipped: [(finding: Finding, reason: SkipReason)]
+    /// Set when the Trash log couldn't be saved; cleanup stopped at that point.
+    var logError: String?
     var freeBefore: Int64
     var freeAfter: Int64
     var bytesMoved: Int64 { moved.reduce(0) { $0 + $1.bytes } }
@@ -37,6 +39,11 @@ final class AppModel {
     var expanded: Set<String> = []
     var scanProgress: String?
     var isScanning: Bool { scanProgress != nil }
+    var isCleaning = false
+    /// True while a scan or cleanup runs; mode switches and new scans wait.
+    var isBusy: Bool { isScanning || isCleaning }
+    /// Bumped whenever the mode changes, so a scan that finishes late is discarded.
+    private var generation = 0
 
     var showReview = false
     var summary: CleanupSummary?
@@ -47,10 +54,18 @@ final class AppModel {
     init() {
         history = HistoryStore(file: AppFiles.history)
         trashLog = TrashLog(file: AppFiles.trashLog)
-        if let data = try? Data(contentsOf: AppFiles.lastScan),
-           let last = try? JSONDecoder().decode(ScanResult.self, from: data) {
-            scan = last
-        }
+        scan = Self.loadLastScan()
+    }
+
+    private static func loadLastScan() -> ScanResult? {
+        guard let data = try? Data(contentsOf: AppFiles.lastScan) else { return nil }
+        return try? JSONDecoder().decode(ScanResult.self, from: data)
+    }
+
+    private func saveLastScan() {
+        guard let scan, let data = try? JSONEncoder().encode(scan) else { return }
+        try? FileManager.default.createDirectory(at: AppFiles.directory, withIntermediateDirectories: true)
+        try? data.write(to: AppFiles.lastScan, options: .atomic)
     }
 
     // MARK: Derived
@@ -78,7 +93,21 @@ final class AppModel {
         return history.snapshots + [Snapshot(scan)]
     }
 
-    var fillDate: Date? { Trends.fillDate(trendSnapshots) }
+    /// What the trend line can say. `fillDate` needs two snapshots at least a day apart.
+    enum Trend {
+        case notEnoughHistory
+        case notShrinking
+        case full(Date)
+    }
+
+    var trend: Trend {
+        let snapshots = trendSnapshots
+        guard let first = snapshots.first, let last = snapshots.last, snapshots.count >= 2,
+              last.date.timeIntervalSince(first.date) >= 24 * 3600
+        else { return .notEnoughHistory }
+        if let date = Trends.fillDate(snapshots) { return .full(date) }
+        return .notShrinking
+    }
 
     var insights: [Insight] {
         guard let scan else { return [] }
@@ -119,6 +148,8 @@ final class AppModel {
     // MARK: Scanning
 
     func loadExample() {
+        guard !isBusy else { return }
+        generation += 1
         isExample = true
         scan = ExampleData.scan()
         history = HistoryStore(snapshots: ExampleData.history())
@@ -131,6 +162,8 @@ final class AppModel {
     }
 
     func leaveExample() {
+        guard !isBusy else { return }
+        generation += 1
         isExample = false
         history = HistoryStore(file: AppFiles.history)
         trashLog = TrashLog(file: AppFiles.trashLog)
@@ -138,16 +171,14 @@ final class AppModel {
         exampleRemoved = [:]
         selected = []
         expanded = []
-        if let data = try? Data(contentsOf: AppFiles.lastScan) {
-            scan = try? JSONDecoder().decode(ScanResult.self, from: data)
-        } else {
-            scan = nil
-        }
+        summary = nil
+        scan = Self.loadLastScan()
     }
 
     func runScan() async {
-        guard !isScanning else { return }
+        guard !isBusy else { return }
         if isExample { leaveExample() }
+        let started = generation
         scanProgress = "Starting"
         selected = []
         let progress = ProgressRelay { [weak self] text in
@@ -156,13 +187,12 @@ final class AppModel {
         let result = await Task.detached(priority: .userInitiated) {
             await Scanner().scan(progress: { progress.report($0) })
         }.value
-        scan = result
         scanProgress = nil
+        // The mode changed while scanning (example data loaded), so this result no longer applies.
+        guard generation == started, !isExample else { return }
+        scan = result
         try? history.append(Snapshot(result))
-        if let data = try? JSONEncoder().encode(result) {
-            try? FileManager.default.createDirectory(at: AppFiles.directory, withIntermediateDirectories: true)
-            try? data.write(to: AppFiles.lastScan, options: .atomic)
-        }
+        saveLastScan()
         background.afterScan(result.volume)
     }
 
@@ -171,35 +201,66 @@ final class AppModel {
     var plan: CleanupPlan { CleanupPlan(selectedFindings) }
 
     /// Name of the running app for a bundle id, or nil when it isn't open.
+    /// An app with no localized name still counts as running.
     nonisolated static let runningApp: @Sendable (String) -> String? = { id in
-        NSRunningApplication.runningApplications(withBundleIdentifier: id).first?.localizedName
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: id).first else { return nil }
+        return app.localizedName ?? id
+    }
+
+    nonisolated static let isAppInstalled: @Sendable (String) -> Bool = { id in
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) != nil
     }
 
     func runCleanup() async {
-        guard let scan else { return }
+        guard scan != nil, !isBusy else { return }
         if isExample { return runExampleCleanup() }
+        isCleaning = true
+        defer { isCleaning = false }
         let plan = plan
-        let freeBefore = scan.volume.freeBytes
-        let cleaner = Cleaner(runningApp: Self.runningApp)
-        let result = await Task.detached(priority: .userInitiated) { cleaner.run(plan) }.value
-        try? trashLog.append(result.moved)
-        let movedIDs = Set(result.moved.map(\.findingID))
-        self.scan?.findings.removeAll { movedIDs.contains($0.id) }
-        finish(moved: result.moved, skipped: result.skipped, freeBefore: freeBefore,
+        let freeBefore = VolumeInfo.current()?.freeBytes ?? scan?.volume.freeBytes ?? 0
+        let cleaner = Cleaner(runningApp: Self.runningApp, isAppInstalled: Self.isAppInstalled)
+        let log = trashLog
+        let (result, updatedLog) = await Task.detached(priority: .userInitiated) {
+            var log = log
+            let result = cleaner.run(plan) { try log.append([$0]) }
+            return (result, log)
+        }.value
+        trashLog = updatedLog
+        removeMovedPaths(result.moved)
+        saveLastScan()
+        finish(moved: result.moved, skipped: result.skipped, logError: result.logError, freeBefore: freeBefore,
                freeAfter: VolumeInfo.current()?.freeBytes ?? freeBefore)
+    }
+
+    /// Takes moved paths out of their findings. A finding with paths left keeps them at its reduced size;
+    /// one with nothing left goes away. Skipped findings stay as they were.
+    private func removeMovedPaths(_ moved: [TrashRecord]) {
+        guard var scan else { return }
+        let movedByFinding = Dictionary(grouping: moved, by: \.findingID)
+        scan.findings = scan.findings.compactMap { finding in
+            guard let records = movedByFinding[finding.id] else { return finding }
+            var finding = finding
+            let movedPaths = Set(records.map(\.original.path))
+            finding.paths.removeAll { movedPaths.contains($0.path) }
+            guard !finding.paths.isEmpty else { return nil }
+            finding.bytes = max(0, finding.bytes - records.reduce(0) { $0 + $1.bytes })
+            return finding
+        }
+        self.scan = scan
     }
 
     /// Synchronous so snapshot mode can use it too.
     func runExampleCleanup() {
         guard let free = scan?.volume.freeBytes else { return }
         let (moved, skipped) = simulateCleanup(plan)
-        finish(moved: moved, skipped: skipped, freeBefore: free, freeAfter: free)
+        finish(moved: moved, skipped: skipped, logError: nil, freeBefore: free, freeAfter: free)
     }
 
-    private func finish(moved: [TrashRecord], skipped: [(finding: Finding, reason: SkipReason)], freeBefore: Int64, freeAfter: Int64) {
+    private func finish(moved: [TrashRecord], skipped: [(finding: Finding, reason: SkipReason)], logError: String?,
+                        freeBefore: Int64, freeAfter: Int64) {
         selected.subtract(moved.map(\.findingID))
         showReview = false
-        summary = CleanupSummary(moved: moved, skipped: skipped, freeBefore: freeBefore, freeAfter: freeAfter)
+        summary = CleanupSummary(moved: moved, skipped: skipped, logError: logError, freeBefore: freeBefore, freeAfter: freeAfter)
     }
 
     /// Example mode: pretend every path moved, and remember the findings so Restore can bring them back.
@@ -259,7 +320,14 @@ final class AppModel {
                           cell(finding.consequence.label), String(finding.bytes),
                           cell(finding.paths.map(\.path).joined(separator: "; "))].joined(separator: ","))
         }
-        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        do {
+            try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "The CSV couldn't be saved"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+        }
     }
 }
 

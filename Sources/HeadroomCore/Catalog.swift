@@ -85,7 +85,8 @@ public enum Catalog {
               paths: [".cache/huggingface"]),
         .init(id: "ollama.models", title: "Ollama models", owner: "Ollama", category: .developer, consequence: .redownload,
               explanation: "Local language models. `ollama pull` downloads them again.",
-              paths: [".ollama/models"], blockingBundleIDs: ["com.electron.ollama"]),
+              paths: [".ollama/models"], blockingBundleIDs: ["com.electron.ollama"],
+              warning: "Models you built or imported yourself can't be pulled again."),
         .init(id: "docker.data", title: "Docker disk image", owner: "Docker", category: .developer, consequence: .appManaged,
               explanation: "One large file holding every image, container and volume. Docker has to shrink it itself.",
               paths: ["Library/Containers/com.docker.docker/Data"],
@@ -163,9 +164,14 @@ public enum Catalog {
     /// True for app-managed locations such as the Photos library, or any folder that contains one.
     /// Cleanup refuses these even if a finding somehow points at them.
     public static func isProtected(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
-        sources.lazy.filter { $0.consequence == .appManaged }
+        // Compare resolved paths too, so a symlink into iCloud Drive doesn't sneak past.
+        let candidates = [url, url.resolvingSymlinksInPath()]
+        return sources.lazy.filter { $0.consequence == .appManaged }
             .flatMap { $0.resolvedPaths(home: home) }
-            .contains { DiskMeasure.overlaps($0, url) }
+            .contains { protected in
+                let resolved = protected.resolvingSymlinksInPath()
+                return candidates.contains { DiskMeasure.overlaps(protected, $0) || DiskMeasure.overlaps(resolved, $0) }
+            }
     }
 
     public static func needsFullDiskAccess(_ relativePath: String) -> Bool {

@@ -12,7 +12,11 @@ enum SnapshotRenderer {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
         app.finishLaunching()
-        try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        } catch {
+            fail("couldn't create \(outputDir.path): \(error.localizedDescription)")
+        }
 
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
             let model = AppModel()
@@ -63,7 +67,7 @@ enum SnapshotRenderer {
         window.setFrameOrigin(NSPoint(x: -5000, y: -5000))
         window.orderFront(nil)
         settle()
-        guard let frame = window.contentView?.superview else { return }
+        guard let frame = window.contentView?.superview else { fail("window has no frame view") }
         write(frame, to: url)
         window.orderOut(nil)
     }
@@ -93,11 +97,20 @@ enum SnapshotRenderer {
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(bounds.width * 2), pixelsHigh: Int(bounds.height * 2),
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)
-        else { return }
+        else { fail("couldn't allocate a bitmap for \(url.lastPathComponent)") }
         rep.size = bounds.size
         view.cacheDisplay(in: bounds, to: rep)
-        guard let png = rep.representation(using: .png, properties: [:]) else { return }
-        try? png.write(to: url)
+        guard let png = rep.representation(using: .png, properties: [:]) else { fail("couldn't encode \(url.lastPathComponent)") }
+        do {
+            try png.write(to: url)
+        } catch {
+            fail("couldn't write \(url.path): \(error.localizedDescription)")
+        }
         print("wrote \(url.path)")
+    }
+
+    private static func fail(_ message: String) -> Never {
+        FileHandle.standardError.write(Data(("snapshot: " + message + "\n").utf8))
+        exit(1)
     }
 }

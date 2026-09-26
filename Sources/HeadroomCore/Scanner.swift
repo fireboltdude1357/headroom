@@ -88,12 +88,18 @@ public struct Scanner: Sendable {
 
         // Skip folders the catalog already covers, including ones that merely contain a catalog path,
         // like Docker's container around its app-managed disk image.
+        // Installed apps' own data is never offered, so don't spend time measuring it.
         for folder in discoveries.appFolders(includeContainers: fullDiskAccess)
-        where !catalogPaths.contains(where: { DiskMeasure.overlaps($0, folder.url) }) {
+        where !catalogPaths.contains(where: { DiskMeasure.overlaps($0, folder.url) })
+            && (folder.kind == .cache || !discoveries.isInstalled(folder.bundleID)) {
             jobs.append(.appFolder(folder))
         }
 
-        var findings = discoveries.oldInstallers()
+        var findings = discoveries.oldInstallers().map { finding in
+            var finding = finding
+            finding.fileNumbers = Self.fileNumbers(finding.paths)
+            return finding
+        }
         progress("Measuring \(jobs.count) locations")
         let measured = await withTaskGroup(of: JobResult.self) { group in
             var results: [JobResult] = []
@@ -113,15 +119,19 @@ public struct Scanner: Sendable {
         for result in measured {
             switch result {
             case let .finding(finding, measurements):
-                if measurements.contains(where: { !$0.readable }) { unreadable.append(contentsOf: finding.paths) }
+                if measurements.contains(where: { !$0.readable || $0.incomplete }) { unreadable.append(contentsOf: finding.paths) }
                 var finding = finding
                 finding.bytes = measurements.reduce(0) { $0 + $1.bytes }
+                finding.isPartial = measurements.contains(where: \.incomplete)
+                finding.fileNumbers = Self.fileNumbers(finding.paths)
                 finding.lastModified = finding.lastModified ?? measurements.compactMap(\.newest).max()
                 if finding.bytes >= 1_000_000 { findings.append(finding) }
             case let .project(finding):
                 if let finding { findings.append(finding) }
             case let .appFolder(folder, measurement):
-                if let finding = discoveries.finding(for: folder, measurement: measurement, appName: apps.names[folder.bundleID]) {
+                if var finding = discoveries.finding(for: folder, measurement: measurement, appName: apps.names[folder.bundleID]) {
+                    finding.isPartial = measurement.incomplete
+                    finding.fileNumbers = Self.fileNumbers(finding.paths)
                     findings.append(finding)
                 }
             }
@@ -130,6 +140,10 @@ public struct Scanner: Sendable {
         findings.sort { $0.bytes > $1.bytes }
         return ScanResult(date: .now, volume: VolumeInfo.current() ?? VolumeInfo(totalBytes: 0, freeBytes: 0),
                           findings: findings, unreadable: unreadable, hasFullDiskAccess: fullDiskAccess)
+    }
+
+    static func fileNumbers(_ paths: [URL]) -> [String: UInt64] {
+        Dictionary(paths.compactMap { path in DiskMeasure.fileNumber(path).map { (path.path, $0) } }, uniquingKeysWith: { a, _ in a })
     }
 
     private enum Job: Sendable {

@@ -13,8 +13,9 @@ public struct BuildFolderRule: Sendable {
     public static let all: [BuildFolderRule] = [
         .init(ecosystem: "Node.js", folder: "node_modules", projectMarkers: ["package.json"],
               rebuildHint: "Your package manager's install command recreates it."),
-        .init(ecosystem: "Next.js", folder: ".next",
-              projectMarkers: ["next.config.js", "next.config.mjs", "next.config.ts", "next.config.cjs"],
+        // next.config is optional, so Next.js's own build files inside .next are what confirm it.
+        .init(ecosystem: "Next.js", folder: ".next", projectMarkers: ["package.json"],
+              innerMarkers: ["BUILD_ID", "build-manifest.json", "trace"],
               rebuildHint: "`next build` or `next dev` recreates it."),
         .init(ecosystem: "Rust", folder: "target", projectMarkers: ["Cargo.toml"],
               innerMarkers: ["CACHEDIR.TAG", ".rustc_info.json"],
@@ -41,6 +42,8 @@ public struct ProjectFinder: Sendable {
     public var maxDepth = 6
     public var untouchedAfter: TimeInterval = 90 * 24 * 3600
     public var now = Date()
+    /// Shared by copies of this finder, so a monorepo's root is walked once per scan, not once per package.
+    let lastWorkedCache = LastWorkedCache()
 
     public static let rootNames = ["Developer", "code", "Code", "Projects", "projects", "src", "dev", "repos",
                                    "GitHub", "Sites", "Documents", "Desktop"]
@@ -76,8 +79,9 @@ public struct ProjectFinder: Sendable {
             guard seenProjects.insert(resolved).inserted else { continue }
             walk(root, depth: 0, into: &found)
         }
+        // Roots can reach the same folder twice through a symlink, so compare resolved paths.
         var unique = Set<String>()
-        return found.filter { unique.insert($0.folder.standardizedFileURL.path).inserted }
+        return found.filter { unique.insert($0.folder.resolvingSymlinksInPath().path).inserted }
     }
 
     private func walk(_ dir: URL, depth: Int, into found: inout [Candidate]) {
@@ -113,6 +117,13 @@ public struct ProjectFinder: Sendable {
     /// folders, plus git's index, which moves on every commit or checkout. The walk stops after
     /// `fileBudget` files so a giant repo can't stall the scan; that only makes a project look newer.
     public func lastWorked(on project: URL, fileBudget: Int = 5_000) -> Date? {
+        if let cached = lastWorkedCache.lookup(project.path) { return cached }
+        let result = walkForLastWorked(project, fileBudget: fileBudget)
+        lastWorkedCache.store(result, for: project.path)
+        return result
+    }
+
+    private func walkForLastWorked(_ project: URL, fileBudget: Int) -> Date? {
         var newest: Date?
         func consider(_ url: URL) {
             guard let date = DiskMeasure.modificationDate(url) else { return }
@@ -177,7 +188,24 @@ public struct ProjectFinder: Sendable {
             bytes: measurement.bytes,
             lastModified: lastWorked,
             verificationMarkers: [candidate.marker] + [candidate.innerMarker].compactMap { $0 },
-            isUntouched: untouched
+            isUntouched: untouched,
+            fileNumbers: DiskMeasure.fileNumber(candidate.folder).map { [candidate.folder.path: $0] } ?? [:]
         )
+    }
+}
+
+/// A thread-safe map from folder path to its "last worked" date. The value is optional because
+/// "no date found" is also worth remembering.
+final class LastWorkedCache: @unchecked Sendable {
+    private var dates: [String: Date?] = [:]
+    private let lock = NSLock()
+
+    /// nil when the folder hasn't been walked yet; `.some(nil)` when it was and had no dates.
+    func lookup(_ path: String) -> Date?? {
+        lock.withLock { dates[path] }
+    }
+
+    func store(_ date: Date?, for path: String) {
+        lock.withLock { _ = dates.updateValue(date, forKey: path) }
     }
 }

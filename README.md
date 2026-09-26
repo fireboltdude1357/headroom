@@ -37,4 +37,6 @@ open dist/Headroom.app
 
 `swift run Headroom --snapshot /tmp/shots` renders every screen with example data to PNGs, in light and dark mode.
 
-Headroom measures allocated file sizes itself, so its totals won't match Storage settings exactly. macOS counts local snapshots and purgeable space differently.
+Headroom measures allocated file sizes itself, so its totals won't match Storage settings exactly. macOS counts local snapshots and purgeable space differently. A file hard-linked inside one folder counts once. Links shared between folders (a pnpm store and a project's `node_modules`) and APFS clones still count in each place. That's why cleanup reports space as "up to" what you'll get back.
+
+The first scan looks inside Documents, Desktop, Downloads and iCloud Drive, so macOS asks once for each folder unless Headroom has Full Disk Access.

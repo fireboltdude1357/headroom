@@ -87,12 +87,16 @@ public struct Finding: Identifiable, Codable, Sendable, Hashable {
     public var verificationMarkers: [URL]
     /// Projects nobody has edited in months.
     public var isUntouched: Bool
+    /// Inode of each path when scanned, keyed by path. Cleanup skips a path that was replaced since.
+    public var fileNumbers: [String: UInt64] = [:]
+    /// True when part of it couldn't be read, so `bytes` is a lower bound.
+    public var isPartial = false
 
     public init(
         id: String, title: String, owner: String, category: FindingCategory, consequence: Consequence,
         explanation: String, detail: String? = nil, warning: String? = nil, settingsHint: String? = nil,
         paths: [URL], bytes: Int64, lastModified: Date? = nil, blockingBundleIDs: [String] = [],
-        verificationMarkers: [URL] = [], isUntouched: Bool = false
+        verificationMarkers: [URL] = [], isUntouched: Bool = false, fileNumbers: [String: UInt64] = [:]
     ) {
         self.id = id
         self.title = title
@@ -109,6 +113,7 @@ public struct Finding: Identifiable, Codable, Sendable, Hashable {
         self.blockingBundleIDs = blockingBundleIDs
         self.verificationMarkers = verificationMarkers
         self.isUntouched = isUntouched
+        self.fileNumbers = fileNumbers
     }
 }
 

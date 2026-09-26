@@ -34,10 +34,10 @@ struct HeadroomApp: App {
             CommandGroup(after: .newItem) {
                 Button("Scan") { Task { await model.runScan() } }
                     .keyboardShortcut("n")
-                    .disabled(model.isScanning)
+                    .disabled(model.isBusy)
                 Button("Rescan") { Task { await model.runScan() } }
                     .keyboardShortcut("r")
-                    .disabled(model.isScanning || model.scan == nil)
+                    .disabled(model.isBusy || model.scan == nil)
                 Button("Export…") { model.exportCSV() }
                     .keyboardShortcut("e")
                     .disabled(model.scan == nil)
@@ -45,6 +45,7 @@ struct HeadroomApp: App {
                 Button(model.isExample ? "Leave example data" : "Try example data") {
                     if model.isExample { model.leaveExample() } else { model.loadExample() }
                 }
+                .disabled(model.isBusy)
             }
         }
 
@@ -82,15 +83,13 @@ struct ContentView: View {
         .sheet(item: $model.summary) { summary in ResultSheet(summary: summary).environment(model) }
     }
 
+    /// Trash comes first so it still works with no scan loaded.
     @ViewBuilder private var detail: some View {
-        if model.scan == nil {
-            EmptyState()
-        } else {
-            switch model.sidebar ?? .overview {
-            case .overview: OverviewView()
-            case let .category(category): CategoryView(category: category).id(category)
-            case .trash: TrashView()
-            }
+        switch model.sidebar ?? .overview {
+        case .trash: TrashView()
+        case _ where model.scan == nil: EmptyState()
+        case .overview: OverviewView()
+        case let .category(category): CategoryView(category: category).id(category)
         }
     }
 }
@@ -137,7 +136,7 @@ struct ScanToolbar: ToolbarContent {
             Button(model.scan == nil ? "Scan" : "Rescan", systemImage: "arrow.clockwise") {
                 Task { await model.runScan() }
             }
-            .disabled(model.isScanning)
+            .disabled(model.isBusy)
             .help(model.scan == nil ? "Scan (⌘N)" : "Rescan (⌘R)")
             Button("Export", systemImage: "square.and.arrow.up") { model.exportCSV() }
                 .disabled(model.scan == nil)
@@ -153,7 +152,7 @@ struct ExampleBanner: View {
         HStack {
             Label("Example data. This is a made-up Mac; cleanup here moves nothing on yours.", systemImage: "sparkles")
             Spacer()
-            Button("Scan this Mac instead") { Task { await model.runScan() } }.controlSize(.small)
+            Button("Scan this Mac instead") { Task { await model.runScan() } }.controlSize(.small).disabled(model.isBusy)
         }
         .font(.callout)
         .padding(.horizontal, 16)
@@ -182,7 +181,7 @@ struct EmptyState: View {
             } else {
                 HStack {
                     Button("Scan this Mac") { Task { await model.runScan() } }.buttonStyle(.borderedProminent)
-                    Button("Try example data") { model.loadExample() }
+                    Button("Try example data") { model.loadExample() }.disabled(model.isBusy)
                 }
             }
         }

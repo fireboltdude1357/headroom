@@ -90,16 +90,22 @@ public struct Discoveries: Sendable {
     /// True when some installed app owns this bundle ID, either exactly or as its helper or extension
     /// ("com.google.Chrome.helper" belongs to "com.google.Chrome").
     public func isInstalled(_ bundleID: String) -> Bool {
-        !owners(of: bundleID).isEmpty || isRegisteredApp(bundleID)
+        !owners(of: bundleID).isEmpty
     }
 
     /// Installed apps this bundle ID belongs to: itself, the app it's a helper of, or its helpers.
     public func owners(of bundleID: String) -> [String] {
         let id = bundleID.lowercased()
-        return installedBundleIDs.filter { installed in
+        let listed = installedBundleIDs.filter { installed in
             let other = installed.lowercased()
             return id == other || id.hasPrefix(other + ".") || other.hasPrefix(id + ".")
-        }.sorted()
+        }
+        // Apps outside the Applications folders: ask LaunchServices about the ID and each parent,
+        // so "com.vendor.Editor.helper" finds an Editor.app living in /opt.
+        let parts = bundleID.split(separator: ".")
+        let registered = parts.count < 3 ? [] : (3...parts.count).map { parts.prefix($0).joined(separator: ".") }
+            .filter(isRegisteredApp)
+        return Array(listed.union(registered)).sorted()
     }
 
     /// Folders under ~/Library named by bundle ID, split into caches of installed apps and

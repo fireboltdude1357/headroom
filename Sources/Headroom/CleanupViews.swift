@@ -33,7 +33,7 @@ struct ReviewSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Move \(plan.findings.count) items to the Trash?").font(.title3.weight(.semibold))
-                Text("\(plan.totalBytes.formattedBytes) comes back when you empty the Trash. Nothing is deleted right away.")
+                Text("Up to \(plan.totalBytes.formattedBytes) comes back when you empty the Trash. Nothing is deleted right away.")
                     .foregroundStyle(.secondary)
             }
             .padding(20)
@@ -85,7 +85,8 @@ struct ReviewSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                if isRunning { ProgressView().controlSize(.small) }
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(isRunning)
                 Button("Move to Trash") {
                     isRunning = true
                     Task { await model.runCleanup(); isRunning = false }
@@ -96,6 +97,7 @@ struct ReviewSheet: View {
             .padding(16)
         }
         .frame(width: 560, height: 520)
+        .interactiveDismissDisabled(isRunning)
     }
 }
 
@@ -125,6 +127,11 @@ struct ResultSheet: View {
                 .monospacedDigit()
             }
 
+            if let logError = summary.logError {
+                Label("Cleanup stopped because the Trash log couldn't be saved: \(logError)", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+
             if !skipLines.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(skipLines, id: \.self) { line in
@@ -144,13 +151,13 @@ struct ResultSheet: View {
                     Text(summary.freeAfter.formattedBytes)
                 }
                 GridRow {
-                    Text("After emptying the Trash").foregroundStyle(.secondary)
+                    Text("After emptying the Trash, up to").foregroundStyle(.secondary)
                     Text((summary.freeAfter + summary.bytesMoved).formattedBytes)
                 }
             }
             .monospacedDigit()
 
-            Text("Items sit in the Trash until you empty it, so the space comes back then. Headroom can put anything back from the Trash tab.")
+            Text("Items sit in the Trash until you empty it, so the space comes back then. Hard links and clones can make the real gain smaller. Headroom can put anything back from the Trash tab.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
