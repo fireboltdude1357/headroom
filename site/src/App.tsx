@@ -46,6 +46,16 @@ function Heading({ kicker, title, lead }: { kicker?: string; title: string; lead
   );
 }
 
+/** Until builds are notarized, macOS blocks the first launch. Shown under every download button. */
+function FirstOpenNote() {
+  return (
+    <p className="max-w-md text-xs text-balance text-ink-muted dark:text-ink-muted-dark">
+      Headroom isn't notarized yet, so macOS blocks the first launch. Click Done, then Open Anyway in System
+      Settings &gt; Privacy &amp; Security.
+    </p>
+  );
+}
+
 function DownloadButton({ large = false }: { large?: boolean }) {
   const size = large ? "px-6 py-3.5 text-base" : "px-4 py-2 text-sm";
   return (
@@ -105,6 +115,7 @@ function Hero() {
           <div className="mt-8 flex flex-col items-center gap-3">
             <DownloadButton large />
             <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
+            <FirstOpenNote />
           </div>
         </div>
         <div className="mx-auto mt-14 max-w-5xl">
@@ -341,6 +352,7 @@ function Pricing() {
         <div className="mt-8">
           <DownloadButton large />
           <p className="mt-3 text-sm text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
+          <FirstOpenNote />
         </div>
       </div>
     </Section>
@@ -422,6 +434,7 @@ function Closing() {
         <div className="mt-8 flex flex-col items-center gap-3">
           <DownloadButton large />
           <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
+          <FirstOpenNote />
         </div>
       </div>
     </Section>
