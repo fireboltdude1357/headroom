@@ -1,0 +1,40 @@
+# Headroom
+
+A Mac app that explains where your disk space went and clears the parts that are safe to clear. It's our own take on [Macaroom](https://getmacaroom.com).
+
+Apple's Storage settings lump most of it into one grey "System Data" bar. Headroom splits that into named sources: Xcode build data, the npm cache, Chrome's cache, a two-year-old iPhone backup. For each one it says what clearing it does.
+
+## What it does
+
+- **Named sources.** About 35 catalogued locations for developer tools, app caches, app data and device files. It also discovers per-app caches, old installers in Downloads, iPhone and iPad backups, and data left behind by deleted apps.
+- **Project build folders.** It finds `node_modules`, `target`, `.build`, `.venv`, `Pods`, `.next` and Gradle `build` folders. A folder only counts when the project's own files confirm it, such as `package.json` next to `node_modules` or `CACHEDIR.TAG` inside Cargo's `target`. Projects nobody has touched in 90 days get flagged, and one button selects them all.
+- **Safe cleanup.** Nothing is ever preselected. You review a plan grouped by consequence (rebuildable, can be downloaded again, leftover, personal data). Right before moving each item, Headroom checks it again. It skips items whose app is open or whose identifying file is gone. Everything goes to the Trash, and the Trash tab puts items back in one click. Photos, Mail, Messages, iCloud Drive, Docker's disk image and simulator devices can't be selected. Headroom points you to the right setting instead.
+- **Menu bar panel.** Free space, the change since the last scan, a fill-date estimate from recent scans and a short "Worth a look" list. An optional weekly background check, plus an alert when free space drops under 10%.
+- **Example data.** "Try example data" runs the whole interface on a made-up Mac without touching your disk.
+
+It never makes network requests. Full Disk Access is optional. Without it, Headroom skips Mail, Messages, device backups and app containers, and lists what it couldn't read.
+
+## Layout
+
+| Path | What it is |
+| --- | --- |
+| `Sources/HeadroomCore` | Scanning, the source catalog, project detection, cleanup, the Trash log and history. No UI. |
+| `Sources/Headroom` | The SwiftUI app: main window, menu bar panel and settings. |
+| `Tests/HeadroomCoreTests` | Swift Testing tests for detection, cleanup safety checks and trends. |
+| `scripts/bundle.sh` | Builds a universal, ad-hoc signed `dist/Headroom.app` and `dist/Headroom.dmg`. |
+| `scripts/make-icon.swift` | Regenerates `Resources/AppIcon.icns`. |
+
+## Build
+
+Requires macOS 14 or later and Xcode 16 or later.
+
+```sh
+swift test                 # core tests
+swift run Headroom         # run unbundled (notifications and login item are disabled)
+scripts/bundle.sh          # dist/Headroom.app and dist/Headroom.dmg
+open dist/Headroom.app
+```
+
+`swift run Headroom --snapshot /tmp/shots` renders every screen with example data to PNGs, in light and dark mode.
+
+Headroom measures allocated file sizes itself, so its totals won't match Storage settings exactly. macOS counts local snapshots and purgeable space differently.
