@@ -57,6 +57,7 @@ The site is live at https://headroom-pink.vercel.app. `Headroom.dmg` isn't in gi
 ```sh
 scripts/bundle.sh                        # on a Mac
 cp dist/Headroom.dmg site/public/
+spctl -a -t open --context context:primary-signature site/public/Headroom.dmg   # must say "Notarized Developer ID"
 cd site && pnpm install
 vercel pull --yes --environment=production
 vercel build --prod && vercel deploy --prebuilt --prod

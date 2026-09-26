@@ -39,7 +39,7 @@ function Section({ id, children, tone = "plain" }: { id: string; children: React
 function Heading({ kicker, title, lead }: { kicker?: string; title: string; lead?: string }) {
   return (
     <div className="max-w-2xl">
-      {kicker && <p className="mb-2 text-sm font-semibold text-accent">{kicker}</p>}
+      {kicker && <p className="mb-2 text-sm font-semibold text-accent dark:text-accent-bright">{kicker}</p>}
       <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
       {lead && <p className="mt-4 text-lg text-ink-muted dark:text-ink-muted-dark">{lead}</p>}
     </div>
@@ -147,7 +147,7 @@ function Compare() {
               <span className="font-medium">Storage settings:</span> {apple}
             </p>
             <p className="mt-1 text-sm">
-              <span className="font-medium text-accent">Headroom:</span> {ours}
+              <span className="font-medium text-accent dark:text-accent-bright">Headroom:</span> {ours}
             </p>
           </div>
         ))}
@@ -158,7 +158,7 @@ function Compare() {
             <tr className="border-b border-line text-ink-muted dark:border-line-dark dark:text-ink-muted-dark">
               <th className="px-5 py-4 font-medium">&nbsp;</th>
               <th className="px-5 py-4 font-medium">Storage settings</th>
-              <th className="px-5 py-4 font-semibold text-accent">Headroom</th>
+              <th className="px-5 py-4 font-semibold text-accent dark:text-accent-bright">Headroom</th>
             </tr>
           </thead>
           <tbody>
@@ -265,7 +265,7 @@ function FeatureRow({ feature, flip }: { feature: Feature; flip: boolean }) {
   return (
     <div id={feature.id} className="grid items-center gap-8 lg:grid-cols-12 lg:gap-14">
       <div className={`lg:col-span-5 ${flip ? "lg:order-2" : ""}`}>
-        <p className="mb-2 text-sm font-semibold text-accent">{feature.kicker}</p>
+        <p className="mb-2 text-sm font-semibold text-accent dark:text-accent-bright">{feature.kicker}</p>
         <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">{feature.title}</h3>
         <p className="mt-4 text-ink-muted dark:text-ink-muted-dark">{feature.body}</p>
         <ul className="mt-5 space-y-2.5">
@@ -286,7 +286,7 @@ function FeatureRow({ feature, flip }: { feature: Feature; flip: boolean }) {
 
 function Check() {
   return (
-    <svg className="mt-1 h-4 w-4 shrink-0 text-accent" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg className="mt-1 h-4 w-4 shrink-0 text-accent dark:text-accent-bright" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="m3 8.5 3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -357,7 +357,7 @@ const faq: [string, ReactNode][] = [
   ],
   [
     "How do I install it?",
-    "Open the .dmg and drag Headroom to Applications. There's no installer and nothing else gets written outside Application Support.",
+    "Open the .dmg and drag Headroom to Applications. There's no installer. Its data lives in Application Support, plus its preferences.",
   ],
   [
     "Could it delete something important?",
@@ -381,7 +381,7 @@ const faq: [string, ReactNode][] = [
   ],
   [
     "Does it run in the background?",
-    "Only if you turn on the weekly check. That also registers Headroom as a login item so the check can run. Both are off by default and can be turned off in Settings or the menu bar panel.",
+    "While Headroom is open, the low space alert checks free space once an hour. It's on by default. Full scans only run in the background if you turn on the weekly check, which also registers Headroom as a login item. You can turn both off in Settings or the menu bar panel.",
   ],
   [
     "Which Macs does it run on?",

@@ -4,7 +4,9 @@
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Inter, system-ui, sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
-  --color-accent: #1a9c98;
+  /* Dark enough for white button text (5.2:1). Accent text on dark backgrounds uses accent-bright. */
+  --color-accent: #0f7a77;
+  --color-accent-bright: #3cc4be;
   --color-accent-strong: #0d5473;
   --color-ink: #1d1d1f;
   --color-ink-muted: #6e6e73;
@@ -19,8 +21,13 @@
 }
 
 html {
-  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
