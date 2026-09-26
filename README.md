@@ -23,6 +23,7 @@ It never makes network requests. Full Disk Access is optional. Without it, Headr
 | `Tests/HeadroomCoreTests` | Swift Testing tests for detection, cleanup safety checks and trends. |
 | `scripts/bundle.sh` | Builds a universal `dist/Headroom.app` and `dist/Headroom.dmg`: signed, notarized and stapled once `setup-signing.sh` has run, ad-hoc signed otherwise. |
 | `scripts/make-icon.swift` | Regenerates `Resources/AppIcon.icns`. |
+| `site/` | The website, a Vite + React + Tailwind page served from Vercel project `headroom`. |
 
 ## Build
 
@@ -48,3 +49,18 @@ It copies the identity into a separate keychain that `bundle.sh` can unlock over
 Headroom measures allocated file sizes itself, so its totals won't match Storage settings exactly. macOS counts local snapshots and purgeable space differently. A file hard-linked inside one folder counts once. Links shared between folders (a pnpm store and a project's `node_modules`) and APFS clones still count in each place. That's why cleanup reports space as "up to" what you'll get back.
 
 The first scan looks inside Documents, Desktop, Downloads and iCloud Drive, so macOS asks once for each folder unless Headroom has Full Disk Access.
+
+## Website
+
+The site is live at https://headroom-pink.vercel.app. `Headroom.dmg` isn't in git, so deploy from a machine that has a fresh build:
+
+```sh
+scripts/bundle.sh                        # on a Mac
+cp dist/Headroom.dmg site/public/
+spctl -a -t open --context context:primary-signature site/public/Headroom.dmg   # must say "Notarized Developer ID"
+cd site && pnpm install
+vercel pull --yes --environment=production
+vercel build --prod && vercel deploy --prebuilt --prod
+```
+
+`pnpm shots` in `site/` turns the PNGs from `--snapshot` into the site's WebP screenshots.
