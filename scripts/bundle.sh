@@ -1,6 +1,12 @@
 #!/bin/bash
 # Builds a universal Headroom.app and Headroom.dmg into dist/. Run on a Mac with Xcode.
-# The app is ad-hoc signed, so on another Mac the first launch needs right-click > Open.
+#
+# Without SIGN_IDENTITY the app is ad-hoc signed, and Gatekeeper blocks it on other Macs until
+# the user clicks Open Anyway in System Settings > Privacy & Security. To ship a build that
+# opens normally, set:
+#   SIGN_IDENTITY   a "Developer ID Application: Name (TEAMID)" identity in the keychain
+#   NOTARY_PROFILE  a notarytool keychain profile, made once with `xcrun notarytool store-credentials`
+# The script then signs with the hardened runtime, notarizes the DMG and staples the ticket.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,11 +42,24 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign - --timestamp=none "$APP"
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+    codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP"
+else
+    codesign --force --sign - --timestamp=none "$APP"
+fi
 
 mkdir -p dist/dmg
 cp -R "$APP" dist/dmg/
 ln -s /Applications dist/dmg/Applications
 hdiutil create -quiet -volname Headroom -srcfolder dist/dmg -format UDZO dist/Headroom.dmg
 rm -rf dist/dmg
+
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+    codesign --force --timestamp --sign "$SIGN_IDENTITY" dist/Headroom.dmg
+    if [ -n "${NOTARY_PROFILE:-}" ]; then
+        xcrun notarytool submit dist/Headroom.dmg --keychain-profile "$NOTARY_PROFILE" --wait
+        xcrun stapler staple dist/Headroom.dmg
+        spctl --assess --type open --context context:primary-signature --verbose dist/Headroom.dmg
+    fi
+fi
 du -sh "$APP" dist/Headroom.dmg

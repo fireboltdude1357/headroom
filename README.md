@@ -35,6 +35,13 @@ scripts/bundle.sh          # dist/Headroom.app and dist/Headroom.dmg
 open dist/Headroom.app
 ```
 
+`bundle.sh` ad-hoc signs by default, so Gatekeeper blocks a downloaded copy until the user clicks Open Anyway in System Settings > Privacy & Security. For a release that opens normally, the Apple Developer account holder creates a Developer ID Application certificate (Xcode > Settings > Accounts > Manage Certificates). Store notary credentials once, then build:
+
+```sh
+xcrun notarytool store-credentials headroom-notary --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer-id>
+SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)" NOTARY_PROFILE=headroom-notary scripts/bundle.sh
+```
+
 `swift run Headroom --snapshot /tmp/shots` renders every screen with example data to PNGs, in light and dark mode.
 
 Headroom measures allocated file sizes itself, so its totals won't match Storage settings exactly. macOS counts local snapshots and purgeable space differently. A file hard-linked inside one folder counts once. Links shared between folders (a pnpm store and a project's `node_modules`) and APFS clones still count in each place. That's why cleanup reports space as "up to" what you'll get back.
