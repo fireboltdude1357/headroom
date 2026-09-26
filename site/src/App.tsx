@@ -46,16 +46,6 @@ function Heading({ kicker, title, lead }: { kicker?: string; title: string; lead
   );
 }
 
-/** Until builds are notarized, macOS blocks the first launch. Shown under every download button. */
-function FirstOpenNote() {
-  return (
-    <p className="max-w-md text-xs text-balance text-ink-muted dark:text-ink-muted-dark">
-      Headroom isn't notarized yet, so macOS blocks the first launch. Click Done, then Open Anyway in System
-      Settings &gt; Privacy &amp; Security.
-    </p>
-  );
-}
-
 function DownloadButton({ large = false }: { large?: boolean }) {
   const size = large ? "px-6 py-3.5 text-base" : "px-4 py-2 text-sm";
   return (
@@ -115,7 +105,6 @@ function Hero() {
           <div className="mt-8 flex flex-col items-center gap-3">
             <DownloadButton large />
             <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
-            <FirstOpenNote />
           </div>
         </div>
         <div className="mx-auto mt-14 max-w-5xl">
@@ -352,7 +341,6 @@ function Pricing() {
         <div className="mt-8">
           <DownloadButton large />
           <p className="mt-3 text-sm text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
-          <FirstOpenNote />
         </div>
       </div>
     </Section>
@@ -361,11 +349,10 @@ function Pricing() {
 
 const faq: [string, ReactNode][] = [
   [
-    "macOS says it can't open Headroom. What now?",
+    "Is it safe to open?",
     <>
-      Headroom isn't notarized with Apple, so the first launch is blocked. Open System Settings, go to
-      Privacy &amp; Security, scroll down to the message about Headroom and click <strong>Open Anyway</strong>. macOS
-      asks once more, then the app opens normally from then on.
+      Headroom is signed with an Apple Developer ID and notarized by Apple, so macOS opens it without a warning. It
+      makes no network requests and never deletes anything on its own.
     </>,
   ],
   [
@@ -434,7 +421,6 @@ function Closing() {
         <div className="mt-8 flex flex-col items-center gap-3">
           <DownloadButton large />
           <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
-          <FirstOpenNote />
         </div>
       </div>
     </Section>
