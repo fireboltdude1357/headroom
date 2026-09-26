@@ -15,10 +15,22 @@ KEYCHAIN_ARGS=()
 if [ -f "$SIGNING_KEYCHAIN" ]; then
     security unlock-keychain -p "$(cat "$HOME/.config/headroom/signing-keychain-password")" "$SIGNING_KEYCHAIN"
     KEYCHAIN_ARGS=(--keychain "$SIGNING_KEYCHAIN")
+    # The SHA-1 hash, not the name, so a renewed certificate with the same name isn't ambiguous.
     SIGN_IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" \
-        | awk -F'"' '/Developer ID Application/ { print $2; exit }')}"
+        | awk '/Developer ID Application/ { print $2; exit }')}"
+    # A release keychain without a valid identity (say, an expired certificate) must not quietly
+    # produce an unsigned build that the site then serves as notarized.
+    [ -n "$SIGN_IDENTITY" ] || { echo "No valid Developer ID identity in $SIGNING_KEYCHAIN" >&2; exit 1; }
     NOTARY_PROFILE="${NOTARY_PROFILE:-headroom-notary}"
 fi
+
+# Submits a file to Apple, waits, and fails unless Apple accepts it.
+notarize() {
+    local out
+    out="$(xcrun notarytool submit "$1" --keychain-profile "$NOTARY_PROFILE" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} --wait)"
+    echo "$out"
+    echo "$out" | grep -q "status: Accepted" || { echo "Notarization of $1 was not accepted" >&2; exit 1; }
+}
 APP="dist/Headroom.app"
 
 swift build -c release --arch arm64 --arch x86_64
@@ -52,6 +64,13 @@ PLIST
 
 if [ -n "${SIGN_IDENTITY:-}" ]; then
     codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} "$APP"
+    if [ -n "${NOTARY_PROFILE:-}" ]; then
+        # Staple the app too, so a copy in Applications passes Gatekeeper even offline.
+        ditto -c -k --keepParent "$APP" dist/Headroom-notarize.zip
+        notarize dist/Headroom-notarize.zip
+        rm dist/Headroom-notarize.zip
+        xcrun stapler staple "$APP"
+    fi
 else
     codesign --force --sign - --timestamp=none "$APP"
 fi
@@ -65,7 +84,7 @@ rm -rf dist/dmg
 if [ -n "${SIGN_IDENTITY:-}" ]; then
     codesign --force --timestamp --sign "$SIGN_IDENTITY" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} dist/Headroom.dmg
     if [ -n "${NOTARY_PROFILE:-}" ]; then
-        xcrun notarytool submit dist/Headroom.dmg --keychain-profile "$NOTARY_PROFILE" ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} --wait
+        notarize dist/Headroom.dmg
         xcrun stapler staple dist/Headroom.dmg
         spctl --assess --type open --context context:primary-signature --verbose dist/Headroom.dmg
     fi

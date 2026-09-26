@@ -21,7 +21,7 @@ It never makes network requests. Full Disk Access is optional. Without it, Headr
 | `Sources/HeadroomCore` | Scanning, the source catalog, project detection, cleanup, the Trash log and history. No UI. |
 | `Sources/Headroom` | The SwiftUI app: main window, menu bar panel and settings. |
 | `Tests/HeadroomCoreTests` | Swift Testing tests for detection, cleanup safety checks and trends. |
-| `scripts/bundle.sh` | Builds a universal, ad-hoc signed `dist/Headroom.app` and `dist/Headroom.dmg`. |
+| `scripts/bundle.sh` | Builds a universal `dist/Headroom.app` and `dist/Headroom.dmg`: signed, notarized and stapled once `setup-signing.sh` has run, ad-hoc signed otherwise. |
 | `scripts/make-icon.swift` | Regenerates `Resources/AppIcon.icns`. |
 
 ## Build

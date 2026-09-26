@@ -4,8 +4,9 @@
 #
 #   APPLE_ID=you@example.com scripts/setup-signing.sh
 #
-# It creates a separate keychain whose password is kept in ~/.config/headroom, copies your signing
-# identities into it, and stores notarytool credentials there. macOS asks you to allow the export,
+# It creates a separate keychain whose password is kept in ~/.config/headroom, copies your
+# Developer ID identity into it, and stores notarytool credentials there. The keychain password is
+# briefly visible to `ps` while `security` runs, so use this on a single-user Mac. macOS asks you to allow the export,
 # and notarytool asks for an app-specific password (make one at account.apple.com).
 set -euo pipefail
 : "${APPLE_ID:?Set APPLE_ID to the Apple ID that belongs to the developer team}"
@@ -29,6 +30,10 @@ if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "Developer I
     trap 'rm -rf "$TMP"' EXIT
     security export -k login.keychain-db -t identities -f pkcs12 -P "$PASS" -o "$TMP/identities.p12"
     security import "$TMP/identities.p12" -k "$KEYCHAIN" -P "$PASS" -T /usr/bin/codesign
+    # The export can only take every identity, so delete all but the Developer ID ones. This
+    # keychain never locks, so it should hold nothing else.
+    security find-identity -p codesigning "$KEYCHAIN" | awk '/^ *[0-9]+\)/ && !/Developer ID Application/ { print $2 }' \
+        | sort -u | while read -r hash; do security delete-identity -Z "$hash" "$KEYCHAIN"; done
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "$KEYCHAIN" >/dev/null
 fi
 
