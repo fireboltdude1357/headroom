@@ -9,6 +9,7 @@
     "shots": "node scripts/convert-shots.mjs"
   },
   "dependencies": {
+    "posthog-js": "^1.434.15",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
