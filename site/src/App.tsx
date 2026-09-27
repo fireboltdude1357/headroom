@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Shot, type ShotName } from "./Shot";
 
-const download = { href: "/Headroom.dmg", note: "macOS 14 or later · Apple silicon and Intel · 1.7 MB" };
+const download = { href: "/Headroom.dmg", note: "macOS 14 or later · Apple silicon and Intel · 1.9 MB" };
 
 export function App() {
   return (
@@ -9,12 +9,11 @@ export function App() {
       <Nav />
       <main>
         <Hero />
-        <Compare />
-        <Features />
-        <Privacy />
-        <Pricing />
+        <Steps />
+        <MenuBar />
+        <HandsOff />
+        <FinePrint />
         <Faq />
-        <Closing />
       </main>
       <Footer />
     </>
@@ -30,29 +29,33 @@ function Container({ children, className = "" }: { children: ReactNode; classNam
 function Section({ id, children, tone = "plain" }: { id: string; children: ReactNode; tone?: "plain" | "tint" }) {
   const bg = tone === "tint" ? "bg-paper-2 dark:bg-paper-2-dark" : "";
   return (
-    <section id={id} className={`py-20 sm:py-28 ${bg}`}>
+    <section id={id} className={`border-t border-line py-20 sm:py-24 dark:border-line-dark ${bg}`}>
       <Container>{children}</Container>
     </section>
   );
 }
 
-function Heading({ kicker, title, lead }: { kicker?: string; title: string; lead?: string }) {
+/** Section title with a mono label on the left, like a line in a ledger. */
+function Heading({ label, title, lead }: { label: string; title: string; lead?: string }) {
   return (
-    <div className="max-w-2xl">
-      {kicker && <p className="mb-2 text-sm font-semibold text-accent dark:text-accent-bright">{kicker}</p>}
-      <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h2>
-      {lead && <p className="mt-4 text-lg text-ink-muted dark:text-ink-muted-dark">{lead}</p>}
+    <div className="grid gap-3 lg:grid-cols-12">
+      <p className="font-mono text-xs tracking-wider text-ink-muted uppercase lg:col-span-4 lg:pt-3 dark:text-ink-muted-dark">
+        {label}
+      </p>
+      <div className="lg:col-span-8">
+        <h2 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
+        {lead && <p className="mt-4 max-w-2xl text-lg text-ink-muted dark:text-ink-muted-dark">{lead}</p>}
+      </div>
     </div>
   );
 }
 
-function DownloadButton({ large = false }: { large?: boolean }) {
-  const size = large ? "px-6 py-3.5 text-base" : "px-4 py-2 text-sm";
+function DownloadButton() {
   return (
     <a
       href={download.href}
       download
-      className={`inline-flex items-center gap-2 rounded-full bg-accent font-semibold text-white hover:bg-accent-strong ${size}`}
+      className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-3 font-semibold text-white hover:bg-accent-strong"
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M8 2v8m0 0 3-3M8 10 5 7M3 13h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -62,21 +65,36 @@ function DownloadButton({ large = false }: { large?: boolean }) {
   );
 }
 
+/** The five labels every item gets in the app, with the app's colors. */
+const tags = {
+  rebuilds: { label: "Rebuildable", className: "text-green-700 bg-green-600/10 dark:text-green-400" },
+  redownload: { label: "Redownload", className: "text-blue-700 bg-blue-600/10 dark:text-blue-400" },
+  leftover: { label: "Leftover", className: "text-orange-700 bg-orange-600/10 dark:text-orange-400" },
+  personal: { label: "Personal data", className: "text-red-700 bg-red-600/10 dark:text-red-400" },
+  managed: { label: "App-managed", className: "text-ink-muted bg-ink-muted/10 dark:text-ink-muted-dark" },
+} as const;
+
+type Tag = keyof typeof tags;
+
+function TagPill({ tag }: { tag: Tag }) {
+  const { label, className } = tags[tag];
+  return <span className={`rounded px-1.5 py-0.5 font-sans text-[11px] font-medium whitespace-nowrap ${className}`}>{label}</span>;
+}
+
 /* Sections */
 
 function Nav() {
   const links = [
-    ["#compare", "Compare"],
-    ["#features", "Features"],
-    ["#privacy", "Privacy"],
-    ["#pricing", "Pricing"],
+    ["#how", "How it works"],
+    ["#hands-off", "What it won't touch"],
+    ["#fine-print", "Fine print"],
     ["#faq", "FAQ"],
   ] as const;
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur dark:border-line-dark dark:bg-paper-dark/85">
       <Container className="flex h-14 items-center justify-between">
         <a href="#top" className="flex items-center gap-2.5 font-semibold">
-          <img src="/icon-512.png" alt="" width="28" height="28" />
+          <img src="/icon-512.png" alt="" width="26" height="26" />
           Headroom
         </a>
         <nav className="hidden gap-6 text-sm text-ink-muted md:flex dark:text-ink-muted-dark">
@@ -86,31 +104,82 @@ function Nav() {
             </a>
           ))}
         </nav>
-        <DownloadButton />
+        <a href={download.href} download className="text-sm font-semibold text-accent hover:underline dark:text-accent-bright">
+          Download
+        </a>
       </Container>
     </header>
   );
 }
 
+/** A sample of lines from the app's example scan, not its ten largest. */
+const receipt: [string, number, Tag][] = [
+  ["Sam's iPhone 16 backup", 63.2, "personal"],
+  ["Photos library", 61.3, "managed"],
+  ["Sam's iPhone 11 backup", 41.8, "personal"],
+  ["Xcode build data", 38.4, "rebuilds"],
+  ["Docker disk image", 32.0, "managed"],
+  ["Device support files", 21.7, "redownload"],
+  ["Ollama models", 14.5, "redownload"],
+  ["npm cache", 9.8, "rebuilds"],
+  ["raytracer/target", 5.4, "rebuilds"],
+  ["com.adobe.Premiere", 4.4, "leftover"],
+];
+
+const gigabytes = (lines: typeof receipt) => lines.reduce((sum, [, size]) => sum + size, 0).toFixed(1);
+
 function Hero() {
+  const recoverable = receipt.filter(([, , tag]) => tag === "rebuilds" || tag === "redownload" || tag === "leftover");
   return (
-    <section id="top" className="pt-16 pb-12 sm:pt-24">
-      <Container>
-        <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-6xl">See what's filling your Mac.</h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg text-ink-muted sm:text-xl dark:text-ink-muted-dark">
-            Headroom names what's inside System Data, from Xcode build data to a two-year-old iPhone backup, and clears
-            the parts that are safe to clear. Free, native, and it never touches the network.
+    <section id="top" className="pt-14 pb-20 sm:pt-20">
+      <Container className="grid items-center gap-12 lg:grid-cols-12">
+        <div className="lg:col-span-6">
+          <p className="font-mono text-xs tracking-wider text-ink-muted uppercase dark:text-ink-muted-dark">
+            Free · Offline · No account
           </p>
-          <div className="mt-8 flex flex-col items-center gap-3">
-            <DownloadButton large />
-            <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
+          <h1 className="mt-4 text-5xl font-semibold tracking-tight sm:text-6xl">System Data, itemized.</h1>
+          <p className="mt-6 max-w-xl text-lg text-ink-muted sm:text-xl dark:text-ink-muted-dark">
+            Storage settings gives you one grey bar. Headroom lists what's in it, tells you what clearing each item would
+            cost you, and moves only what you pick to the Trash.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
+            <DownloadButton />
+            <a href="#how" className="text-sm font-medium text-ink-muted hover:text-ink dark:text-ink-muted-dark dark:hover:text-ink-dark">
+              How it works ↓
+            </a>
           </div>
+          <p className="mt-4 text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
         </div>
-        <div className="mx-auto mt-14 max-w-5xl">
-          <Shot name="overview" alt="Headroom's overview: a disk bar, a fill estimate, three items worth a look, and a grid of 250 MB squares colored by category." eager />
-          <p className="mt-3 text-center text-sm text-ink-muted dark:text-ink-muted-dark">
-            The real app, rendered with its built-in example data.
+        <div className="lg:col-span-6">
+          <div className="rounded-lg border border-line bg-paper-2 p-5 font-mono text-[13px] shadow-[0_24px_50px_-30px_rgba(60,40,10,0.35)] sm:p-7 dark:border-line-dark dark:bg-paper-2-dark dark:shadow-none">
+            <div className="flex justify-between text-xs text-ink-muted uppercase dark:text-ink-muted-dark">
+              <span>Scan · Sam's MacBook</span>
+              <span>494 GB disk</span>
+            </div>
+            <ul className="mt-4 space-y-2 border-y border-dashed border-line py-4 dark:border-line-dark">
+              {receipt.map(([name, size, tag]) => (
+                <li key={name} className="flex items-baseline gap-2">
+                  <span className="truncate">{name}</span>
+                  <span className="hidden sm:inline">
+                    <TagPill tag={tag} />
+                  </span>
+                  <span className="min-w-4 flex-1 border-b border-dotted border-ink-muted/40 dark:border-ink-muted-dark/40" />
+                  <span className="tabular-nums">{size.toFixed(1)} GB</span>
+                </li>
+              ))}
+              <li className="text-ink-muted dark:text-ink-muted-dark">+ 21 more</li>
+            </ul>
+            <div className="mt-4 flex justify-between">
+              <span>Listed</span>
+              <span className="tabular-nums">{gigabytes(receipt)} GB</span>
+            </div>
+            <div className="mt-1 flex justify-between font-semibold text-accent dark:text-accent-bright">
+              <span>Comes back if you clear it</span>
+              <span className="tabular-nums">{gigabytes(recoverable)} GB</span>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-xs text-ink-muted dark:text-ink-muted-dark">
+            A sample from the example scan built into the app. Yours will look different.
           </p>
         </div>
       </Container>
@@ -118,270 +187,178 @@ function Hero() {
   );
 }
 
-const comparison: [string, string, string][] = [
-  ["What you see", "A dozen categories and one big System Data bar", "About 35 named sources plus what it discovers on your Mac"],
-  ["App caches", "Inside System Data", "Per app, with the app's name"],
-  ["Deleted-app leftovers", "Not shown", "Found in Application Support and Caches and named"],
-  ["What clearing does", "Not explained", "Each item says whether it rebuilds, redownloads, or is gone for good"],
-  ["Open apps", "Not checked", "Skips an item while its app is running"],
-  ["Old projects", "Inside Documents or Developer", "Build folders confirmed by project files, with the last-worked date"],
-  ["Warnings", "None", "Shown in the plan before anything moves, such as a device's only backup"],
-  ["Undo", "Varies", "Everything goes to the Trash. The Trash tab restores in one click"],
-  ["Price", "Included with macOS", "Free"],
-];
+type Step = { title: string; body: ReactNode; shot: ShotName; alt: string; narrow?: boolean };
 
-function Compare() {
-  return (
-    <Section id="compare" tone="tint">
-      <Heading
-        kicker="Compare"
-        title="Storage settings vs Headroom"
-        lead="Apple's Storage settings shows one grey bar for System Data. Headroom splits it into sources and says what each one is."
-      />
-      {/* Phones get one card per row; the table needs three columns of room. */}
-      <div className="mt-10 space-y-3 md:hidden">
-        {comparison.map(([row, apple, ours]) => (
-          <div key={row} className="rounded-2xl border border-line bg-paper p-5 dark:border-line-dark dark:bg-paper-dark">
-            <h3 className="font-semibold">{row}</h3>
-            <p className="mt-2 text-sm text-ink-muted dark:text-ink-muted-dark">
-              <span className="font-medium">Storage settings:</span> {apple}
-            </p>
-            <p className="mt-1 text-sm">
-              <span className="font-medium text-accent dark:text-accent-bright">Headroom:</span> {ours}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-10 hidden overflow-hidden rounded-2xl border border-line bg-paper md:block dark:border-line-dark dark:bg-paper-dark">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-line text-ink-muted dark:border-line-dark dark:text-ink-muted-dark">
-              <th className="px-5 py-4 font-medium">&nbsp;</th>
-              <th className="px-5 py-4 font-medium">Storage settings</th>
-              <th className="px-5 py-4 font-semibold text-accent dark:text-accent-bright">Headroom</th>
-            </tr>
-          </thead>
-          <tbody>
-            {comparison.map(([row, apple, ours]) => (
-              <tr key={row} className="border-b border-line last:border-0 dark:border-line-dark">
-                <th scope="row" className="px-5 py-4 align-top font-medium">
-                  {row}
-                </th>
-                <td className="px-5 py-4 align-top text-ink-muted dark:text-ink-muted-dark">{apple}</td>
-                <td className="px-5 py-4 align-top">{ours}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="mt-4 text-sm text-ink-muted dark:text-ink-muted-dark">
-        Totals won't match Apple's exactly. Headroom measures files itself and groups them differently. Photos, Mail,
-        Messages and iCloud Drive stay with their own apps; Headroom points you to the right setting instead.
-      </p>
-    </Section>
-  );
-}
-
-type Feature = {
-  id: string;
-  kicker: string;
-  title: string;
-  body: ReactNode;
-  shot: ShotName;
-  alt: string;
-  points: string[];
-};
-
-const features: Feature[] = [
+const steps: Step[] = [
   {
-    id: "sources",
-    kicker: "Named sources",
-    title: "Every item has a name and an owner",
-    body: "Headroom knows about 35 locations that developer tools, browsers and chat apps fill up, and it discovers per-app caches, old installers in Downloads, iPhone and iPad backups, and data left behind by deleted apps.",
+    title: "Scan",
+    body: "About a minute. Headroom checks around 35 places that developer tools, browsers and chat apps fill up. Then it looks for per-app caches, iPhone backups, old installers, deleted-app leftovers, and build folders in your code folders.",
+    shot: "overview",
+    alt: "Headroom's overview: a disk bar, a fill estimate, three items worth a look, and a grid of squares colored by category.",
+  },
+  {
+    title: "Read the label",
+    body: (
+      <>
+        <span>Every item says what it is, which app made it, and what happens if it goes:</span>
+        <span className="mt-3 flex flex-wrap gap-1.5">
+          {(Object.keys(tags) as Tag[]).map((tag) => (
+            <TagPill key={tag} tag={tag} />
+          ))}
+        </span>
+      </>
+    ),
     shot: "category-expanded",
     alt: "The Developer tools list with Xcode build data expanded to show its explanation and path.",
-    points: [
-      "Each row says what it is, who made it, and what happens if you clear it.",
-      "Badges tell you at a glance: Rebuildable, Redownload, Leftover, Personal data, App-managed.",
-      "App-managed items such as Docker's disk image can't be selected. Headroom shows the right setting instead.",
-    ],
   },
   {
-    id: "projects",
-    kicker: "Project build folders",
-    title: "Keep the code. Clear the build files.",
-    body: "node_modules, target, .build, .venv, Pods, .next and Gradle build folders add up fast. Headroom only counts a folder when the project's own files confirm it, such as package.json next to node_modules. Your source code stays.",
+    title: "Pick",
+    body: "Nothing starts ticked. Build folders only count when the project's own files confirm them, such as package.json next to node_modules, and each shows when you last worked on it. Select untouched ticks every project nobody has changed in 90 days.",
     shot: "projects",
     alt: "The Project build folders list with four untouched projects checked and a Select untouched button.",
-    points: [
-      "Every folder shows the project it belongs to and when you last worked on it.",
-      "Projects nobody has touched in 90 days get an Untouched tag.",
-      "One button selects all of them.",
-    ],
   },
   {
-    id: "cleanup",
-    kicker: "Safe cleanup",
-    title: "Everything goes to the Trash first",
-    body: "Nothing is ever preselected. You pick, Headroom shows a plan grouped by consequence, and it checks each item again right before moving it.",
+    title: "Check the plan",
+    body: "The plan groups your picks by what you'd lose and lists warnings, such as a backup that may be a device's only copy. Right before each move, Headroom checks the item again and skips it if its app is open.",
     shot: "review",
     alt: "The cleanup plan grouped into Rebuildable, Can be downloaded again and Personal data, with a warning about app archives.",
-    points: [
-      "The plan lists warnings, such as a backup that is the device's only copy.",
-      "Items are skipped if their app is open or the file that identified them is gone. The result says why, like \"2 skipped because Xcode was open\".",
-      "The Trash tab lists what moved and puts any item back in one click.",
-    ],
+    narrow: true,
   },
   {
-    id: "menubar",
-    kicker: "Menu bar",
-    title: "A heads-up before space runs out",
-    body: "Each scan is compared with the last one, so Headroom can say what grew and roughly when the disk fills up if nothing changes.",
-    shot: "menubar",
-    alt: "The menu bar panel: 27.2 GB free of 494 GB, a fill estimate, three items worth a look, and toggles for the weekly check and low space alert.",
-    points: [
-      "Worth a look: sources that grew since the last scan and untouched projects, each with a button.",
-      "Weekly check: an optional background scan, off by default.",
-      "Low space alert: a notification when free space drops under 10%.",
-    ],
+    title: "Change your mind",
+    body: "Everything goes to the Trash, not into the void. The Trash tab lists what moved and puts any item back in one click, until you empty the Trash.",
+    shot: "trash",
+    alt: "Headroom's Trash tab listing moved items with a Put Back button on each.",
   },
 ];
 
-function Features() {
+function Steps() {
   return (
-    <Section id="features">
-      <Heading kicker="Features" title="What it does" />
-      <div className="mt-6 space-y-20 sm:mt-10 sm:space-y-28">
-        {features.map((feature, index) => (
-          <FeatureRow key={feature.id} feature={feature} flip={index % 2 === 1} />
+    <Section id="how" tone="tint">
+      <Heading label="How it works" title="Five steps, and you make every call" />
+      <ol className="mt-14 space-y-20 sm:space-y-24">
+        {steps.map((step, index) => (
+          <li key={step.title} className="grid gap-6 lg:grid-cols-12 lg:gap-12">
+            <div className="lg:sticky lg:top-24 lg:col-span-4 lg:self-start">
+              <p className="font-mono text-sm text-accent dark:text-accent-bright">{String(index + 1).padStart(2, "0")}</p>
+              <h3 className="mt-1 text-2xl font-semibold tracking-tight">{step.title}</h3>
+              <p className="mt-3 flex flex-col text-ink-muted dark:text-ink-muted-dark">{step.body}</p>
+            </div>
+            <div className={`lg:col-span-8 ${step.narrow ? "flex justify-center" : ""}`}>
+              <Shot name={step.shot} alt={step.alt} className={step.narrow ? "shot w-full max-w-lg" : "shot w-full"} />
+            </div>
+          </li>
         ))}
+      </ol>
+    </Section>
+  );
+}
+
+function MenuBar() {
+  const lines: [string, string][] = [
+    ["Fill estimate", "Headroom fits a trend through your recent scans to guess roughly when the disk fills if nothing changes."],
+    ["Worth a look", "Sources that grew since last time and projects gone untouched, each one click away."],
+    ["Weekly check", "An optional background scan. Off until you turn it on."],
+    ["Low space alert", "A notification when free space drops under 10%."],
+  ];
+  return (
+    <Section id="menubar">
+      <Heading label="Between scans" title="It watches free space from the menu bar" />
+      <div className="mt-10 grid items-center gap-12 lg:grid-cols-12">
+        <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:col-span-4 lg:col-start-5 lg:grid-cols-1">
+          {lines.map(([term, detail]) => (
+            <div key={term}>
+              <dt className="font-semibold">{term}</dt>
+              <dd className="mt-1 text-ink-muted dark:text-ink-muted-dark">{detail}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="flex justify-center lg:col-span-4">
+          <Shot name="menubar" alt="The menu bar panel: 27.2 GB free of 494 GB, a fill estimate, three items worth a look, and toggles for the weekly check and low space alert." className="shot w-full max-w-sm" />
+        </div>
       </div>
     </Section>
   );
 }
 
-function FeatureRow({ feature, flip }: { feature: Feature; flip: boolean }) {
-  const narrow = feature.shot === "menubar" || feature.shot === "review";
-  return (
-    <div id={feature.id} className="grid items-center gap-8 lg:grid-cols-12 lg:gap-14">
-      <div className={`lg:col-span-5 ${flip ? "lg:order-2" : ""}`}>
-        <p className="mb-2 text-sm font-semibold text-accent dark:text-accent-bright">{feature.kicker}</p>
-        <h3 className="text-2xl font-semibold tracking-tight sm:text-3xl">{feature.title}</h3>
-        <p className="mt-4 text-ink-muted dark:text-ink-muted-dark">{feature.body}</p>
-        <ul className="mt-5 space-y-2.5">
-          {feature.points.map((point) => (
-            <li key={point} className="flex gap-3">
-              <Check />
-              <span>{point}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className={`lg:col-span-7 ${flip ? "lg:order-1" : ""} ${narrow ? "flex justify-center" : ""}`}>
-        <Shot name={feature.shot} alt={feature.alt} className={narrow ? "shot w-full max-w-md" : "shot w-full"} />
-      </div>
-    </div>
-  );
-}
-
-function Check() {
-  return (
-    <svg className="mt-1 h-4 w-4 shrink-0 text-accent dark:text-accent-bright" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="m3 8.5 3 3 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function Privacy() {
+function HandsOff() {
   const items: [string, string][] = [
-    ["No network requests", "Headroom never connects to anything. No update check, no license check, no crash reports. You can watch it with a firewall and see nothing."],
-    ["No account, no analytics", "There's nothing to sign up for and nothing is counted. The app keeps three small JSON files in Application Support: the last scan, scan history and the Trash log."],
-    ["Full Disk Access is optional", "Without it, Headroom skips Mail, Messages, device backups and app containers, and lists exactly what it couldn't read so you know the totals are low."],
-    ["Only names, sizes and dates", "Scanning reads file metadata. Headroom never opens your documents, photos or messages."],
+    ["Photos library", "Photos"],
+    ["Mail downloads", "Mail"],
+    ["Messages attachments", "Messages"],
+    ["iCloud Drive", "iCloud"],
+    ["Docker disk image", "Docker"],
+    ["Simulator devices", "Simulator"],
   ];
   return (
-    <Section id="privacy" tone="tint">
-      <Heading kicker="Privacy" title="Nothing leaves your Mac" />
-      <div className="mt-10 grid gap-5 sm:grid-cols-2">
-        {items.map(([title, body]) => (
-          <div key={title} className="rounded-2xl border border-line bg-paper p-6 dark:border-line-dark dark:bg-paper-dark">
-            <h3 className="font-semibold">{title}</h3>
-            <p className="mt-2 text-ink-muted dark:text-ink-muted-dark">{body}</p>
+    <Section id="hands-off" tone="tint">
+      <Heading
+        label="What it won't touch"
+        title="Some things only their own app should delete"
+        lead="Headroom shows how big these are, then points you to the setting that shrinks them. You can't tick them, so they can't end up in the Trash by accident."
+      />
+      <ul className="mt-10 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:ml-[calc(4/12*100%)] lg:grid-cols-3 dark:border-line-dark dark:bg-line-dark">
+        {items.map(([name, owner]) => (
+          <li key={name} className="bg-paper px-5 py-4 dark:bg-paper-dark">
+            <span className="font-medium">{name}</span>
+            <span className="block text-sm text-ink-muted dark:text-ink-muted-dark">Managed by {owner}</span>
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
+function FinePrint() {
+  const rows: [string, string][] = [
+    ["Price", "Free. No license key, no subscription, and it runs on as many Macs as you like."],
+    ["Network", "None. No update check, no license check, no crash reports. A firewall will show nothing."],
+    ["Account and analytics", "Neither. The app keeps three small JSON files in Application Support: the last scan, scan history and the Trash log."],
+    ["What it reads", "File names, sizes and dates. It never opens your documents, photos or messages."],
+    ["Full Disk Access", "Optional. Without it, Headroom skips Mail, Messages, device backups, app containers, and your Documents, Desktop and Downloads folders, and lists what it couldn't read."],
+    ["Signing", "Signed with an Apple Developer ID and notarized by Apple, so macOS opens it without a warning."],
+    ["Source", "Open source under the MIT license, on GitHub at fireboltdude1357/headroom."],
+    ["Extras", "Example data mode to try everything without touching your disk, and CSV export of any scan (⌘E)."],
+  ];
+  return (
+    <Section id="fine-print">
+      <Heading label="Fine print" title="The short version: free, and it stays on your Mac" />
+      <dl className="mt-10 divide-y divide-line border-y border-line lg:ml-[calc(4/12*100%)] dark:divide-line-dark dark:border-line-dark">
+        {rows.map(([term, detail]) => (
+          <div key={term} className="grid gap-1 py-4 sm:grid-cols-3 sm:gap-6">
+            <dt className="font-mono text-sm text-ink-muted sm:pt-0.5 dark:text-ink-muted-dark">{term}</dt>
+            <dd className="sm:col-span-2">{detail}</dd>
           </div>
         ))}
-      </div>
+      </dl>
     </Section>
   );
 }
 
-function Pricing() {
-  const included = [
-    "Every feature, on as many Macs as you like",
-    "No license key, no account, no subscription",
-    "Menu bar panel, weekly check and low space alert",
-    "Example data mode to try everything without touching your disk",
-    "CSV export of every scan (⌘E)",
-  ];
-  return (
-    <Section id="pricing">
-      <Heading kicker="Pricing" title="Free" lead="There's no license and nothing to pay. Download it and run it." />
-      <div className="mt-10 max-w-md rounded-2xl border border-line p-8 dark:border-line-dark">
-        <div className="flex items-baseline gap-2">
-          <span className="text-5xl font-semibold tracking-tight">$0</span>
-          <span className="text-ink-muted dark:text-ink-muted-dark">forever</span>
-        </div>
-        <ul className="mt-6 space-y-2.5">
-          {included.map((item) => (
-            <li key={item} className="flex gap-3">
-              <Check />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-8">
-          <DownloadButton large />
-          <p className="mt-3 text-sm text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
-const faq: [string, ReactNode][] = [
-  [
-    "Is it safe to open?",
-    <>
-      Headroom is signed with an Apple Developer ID and notarized by Apple, so macOS opens it without a warning. It
-      makes no network requests and never deletes anything on its own.
-    </>,
-  ],
+const faq: [string, string][] = [
   [
     "How do I install it?",
     "Open the .dmg and drag Headroom to Applications. There's no installer. Its data lives in Application Support, plus its preferences.",
   ],
   [
     "Could it delete something important?",
-    "Only items you tick go to the Trash, and nothing is ticked for you. Photos, Mail, Messages, iCloud Drive, Docker's disk image and simulator devices can't be selected at all. Right before each move, Headroom checks the item again and skips it if its app is open or the file that identified it is gone.",
+    "Only items you tick go to the Trash, and nothing is ticked for you. App-managed items can't be ticked at all. Right before each move, Headroom checks the item again and skips it if its app is open or the file that identified it is gone.",
   ],
   [
-    "Why don't the numbers match Apple's Storage settings?",
+    "Why don't the numbers match Storage settings?",
     "Headroom measures allocated file sizes itself and groups them by source rather than by Apple's categories. macOS also counts local snapshots and purgeable space differently. A file hard-linked inside one folder counts once, but links shared between folders and APFS clones count in each place, which is why cleanup reports space as \"up to\" what you'll get back.",
   ],
   [
     "When does the space come back?",
-    "When you empty the Trash. Headroom moves items there rather than deleting them, so you can put anything back from the Trash tab until then.",
+    "When you empty the Trash. Until then you can put anything back from the Trash tab.",
   ],
   [
-    "What can't it clear?",
-    "Anything an app manages itself: the Photos library, Mail and Messages data, iCloud Drive, Docker's disk image and simulator devices. Headroom shows their size and points you to the setting that controls them.",
-  ],
-  [
-    "Do I need to give it Full Disk Access?",
-    "No. Without it, Headroom skips Mail, Messages, device backups and app containers, and lists what it couldn't read. With it, those show up too. Either way it only reads names, sizes and dates. The first scan also looks inside Documents, Desktop, Downloads and iCloud Drive, so macOS asks once for each folder.",
+    "What about files iCloud has offloaded?",
+    "Headroom skips them. They take no space on your Mac, and it never downloads anything from iCloud to measure it.",
   ],
   [
     "Does it run in the background?",
-    "While Headroom is open, the low space alert checks free space once an hour. It's on by default. Full scans only run in the background if you turn on the weekly check, which also registers Headroom as a login item. You can turn both off in Settings or the menu bar panel.",
+    "While Headroom is open, the low space alert checks free space once an hour. Full scans only run in the background if you turn on the weekly check, which also registers Headroom as a login item. You can turn both off in Settings or the menu bar panel.",
   ],
   [
     "Which Macs does it run on?",
@@ -392,17 +369,16 @@ const faq: [string, ReactNode][] = [
 function Faq() {
   return (
     <Section id="faq" tone="tint">
-      <Heading kicker="FAQ" title="Questions" />
-      <div className="mt-10 max-w-3xl divide-y divide-line rounded-2xl border border-line bg-paper dark:divide-line-dark dark:border-line-dark dark:bg-paper-dark">
+      <Heading label="FAQ" title="Questions" />
+      <div className="mt-10 divide-y divide-line border-y border-line lg:ml-[calc(4/12*100%)] dark:divide-line-dark dark:border-line-dark">
         {faq.map(([question, answer]) => (
-          <details key={question} className="group px-6 py-4">
-            <summary className="flex cursor-pointer items-center justify-between gap-4 font-medium">
+          <details key={question} className="group py-4">
+            <summary className="flex cursor-pointer items-baseline gap-4 font-medium">
+              <span aria-hidden="true" className="w-4 shrink-0 font-mono text-accent group-open:hidden dark:text-accent-bright">+</span>
+              <span aria-hidden="true" className="hidden w-4 shrink-0 font-mono text-accent group-open:inline dark:text-accent-bright">−</span>
               {question}
-              <svg className="h-4 w-4 shrink-0 text-ink-muted transition-transform group-open:rotate-180 dark:text-ink-muted-dark" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="m4 6 4 4 4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
             </summary>
-            <p className="mt-3 text-ink-muted dark:text-ink-muted-dark">{answer}</p>
+            <p className="mt-2 pl-8 text-ink-muted dark:text-ink-muted-dark">{answer}</p>
           </details>
         ))}
       </div>
@@ -410,32 +386,31 @@ function Faq() {
   );
 }
 
-function Closing() {
-  return (
-    <Section id="download">
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Make room for what matters</h2>
-        <p className="mt-4 text-lg text-ink-muted dark:text-ink-muted-dark">
-          A scan takes a minute or two. Nothing moves until you say so.
-        </p>
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <DownloadButton large />
-          <p className="text-sm text-balance text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
-        </div>
-      </div>
-    </Section>
-  );
-}
-
 function Footer() {
   return (
-    <footer className="border-t border-line py-10 text-sm text-ink-muted dark:border-line-dark dark:text-ink-muted-dark">
-      <Container className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-center gap-2">
-          <img src="/icon-512.png" alt="" width="20" height="20" />
-          Headroom. A little more room on your Mac.
-        </p>
-        <p>Native SwiftUI · Apple silicon and Intel · macOS 14 or later</p>
+    <footer className="border-t border-line bg-paper-3 py-14 dark:border-line-dark dark:bg-paper-3-dark">
+      <Container className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2.5 text-lg font-semibold">
+            <img src="/icon-512.png" alt="" width="28" height="28" />
+            Headroom
+          </p>
+          <p className="mt-2 max-w-sm text-sm text-ink-muted dark:text-ink-muted-dark">
+            A disk analyzer that explains itself. Made by{" "}
+            <a href="https://architechsolutions.net" className="underline hover:text-ink dark:hover:text-ink-dark">
+              Architech Solutions
+            </a>
+            . Open source on{" "}
+            <a href="https://github.com/fireboltdude1357/headroom" className="underline hover:text-ink dark:hover:text-ink-dark">
+              GitHub
+            </a>
+            .
+          </p>
+        </div>
+        <div className="sm:text-right">
+          <DownloadButton />
+          <p className="mt-3 text-sm text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
+        </div>
       </Container>
     </footer>
   );
