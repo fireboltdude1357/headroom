@@ -14,6 +14,7 @@ public enum DiskMeasure {
     /// Sums allocated blocks, which is what the files cost on disk. Uses fts because it hands back
     /// `stat` results without a second system call. Symlinks are not followed, and a file with
     /// several hard links inside the tree counts once (pnpm's node_modules are mostly hard links).
+    /// Folders iCloud has evicted are skipped: their files aren't on this Mac.
     public static func measure(_ url: URL) -> Measurement {
         var result = Measurement()
         var seenLinks = Set<UInt64>()
@@ -35,6 +36,8 @@ public enum DiskMeasure {
                 result.incomplete = true
             default:
                 guard let stat = entry.pointee.fts_statp?.pointee else { break }
+                // Listing an evicted folder asks iCloud for its contents, which can block for hours.
+                if info == FTS_D, stat.st_flags & UInt32(SF_DATALESS) != 0 { fts_set(fts, entry, FTS_SKIP) }
                 let modified = Date(timeIntervalSince1970: TimeInterval(stat.st_mtimespec.tv_sec))
                 if modified > (result.newest ?? .distantPast) { result.newest = modified }
                 if info == FTS_F, stat.st_nlink > 1, !seenLinks.insert(UInt64(stat.st_ino)).inserted { break }
@@ -42,6 +45,13 @@ public enum DiskMeasure {
             }
         }
         return result
+    }
+
+    /// Makes this process fail fast with EDEADLK instead of downloading evicted iCloud files or
+    /// folder listings when it reads them. Measuring only needs what's already on disk, and any
+    /// download can hang indefinitely when iCloud is slow or stuck.
+    public static func neverDownload() {
+        setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_OFF)
     }
 
     public static func exists(_ url: URL) -> Bool {

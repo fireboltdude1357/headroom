@@ -50,6 +50,8 @@ public struct Scanner: Sendable {
 
     /// Runs a full scan. `progress` receives a short label for each step.
     public func scan(progress: @Sendable (String) -> Void = { _ in }) async -> ScanResult {
+        // Finding projects and measuring folders both list directories, so this covers them all.
+        DiskMeasure.neverDownload()
         let fullDiskAccess = Self.hasFullDiskAccess(home: home)
         let apps = InstalledApps.discover(home: home)
         var discoveries = Discoveries(home: home, installedBundleIDs: Set(apps.names.keys))
@@ -113,6 +115,7 @@ public struct Scanner: Sendable {
             }
             for await result in group {
                 results.append(result)
+                progress("Measuring \(results.count) of \(jobs.count) locations")
                 if !Task.isCancelled, let job = next() { group.addTask { Self.run(job) } }
             }
             return results
