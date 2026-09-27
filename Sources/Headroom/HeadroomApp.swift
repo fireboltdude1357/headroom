@@ -24,7 +24,7 @@ struct HeadroomApp: App {
         Window("Headroom", id: "main") {
             Group {
                 if model.showOnboarding {
-                    OnboardingView(hasFullDiskAccess: model.hasFullDiskAccess)
+                    OnboardingView()
                 } else {
                     ContentView()
                 }

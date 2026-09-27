@@ -26,11 +26,9 @@ enum SnapshotRenderer {
                 render(view.environment(onboarding), size: nil,
                        appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png"))
             }
-            onboardingShot("onboarding-welcome", OnboardingView(step: .welcome, hasFullDiskAccess: false))
-            onboardingShot("onboarding-access", OnboardingView(step: .access, hasFullDiskAccess: false))
+            onboardingShot("onboarding", OnboardingView(watchesAccess: false))
+            onboardingShot("onboarding-waiting", OnboardingView(openedSettings: true, watchesAccess: false))
             onboardingShot("empty", EmptyState())
-            onboarding.hasFullDiskAccess = true
-            onboardingShot("onboarding-granted", OnboardingView(step: .access, hasFullDiskAccess: true))
 
             let model = AppModel()
             model.loadExample()

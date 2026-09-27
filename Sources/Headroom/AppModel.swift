@@ -33,7 +33,7 @@ final class AppModel {
     /// Findings removed by a simulated cleanup, keyed by record id, so Restore can put them back.
     private var exampleRemoved: [TrashRecord.ID: Finding] = [:]
     var isExample = false
-    /// Read at launch and again whenever onboarding comes back to the front.
+    /// Read at launch, and every second while onboarding waits for the switch.
     var hasFullDiskAccess = FullDiskAccess.isGranted
     /// True until the first-launch onboarding ends with a scan or a skip.
     var showOnboarding = !UserDefaults.standard.bool(forKey: Prefs.onboarded)
@@ -152,7 +152,8 @@ final class AppModel {
     // MARK: Scanning
 
     func recheckFullDiskAccess() {
-        hasFullDiskAccess = FullDiskAccess.isGranted
+        let granted = FullDiskAccess.isGranted
+        if granted != hasFullDiskAccess { hasFullDiskAccess = granted }
     }
 
     func finishOnboarding(scan: Bool) {

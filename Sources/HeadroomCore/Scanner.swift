@@ -38,11 +38,14 @@ public struct Scanner: Sendable {
         projectFinder = ProjectFinder(home: home)
     }
 
-    /// macOS only lets apps with Full Disk Access read the privacy database, so a successful read is the signal.
+    /// macOS only lets apps with Full Disk Access open the privacy databases or list Safari's folder, so
+    /// any one of those succeeding is the signal. None of them raise a prompt when access is off.
+    /// Trying them is also what puts Headroom in the Full Disk Access list, so users only flip a switch.
     public static func hasFullDiskAccess(home: URL) -> Bool {
-        let tcc = home.appending(path: "Library/Application Support/com.apple.TCC/TCC.db")
-        return FileManager.default.isReadableFile(atPath: tcc.path)
-            && (try? FileHandle(forReadingFrom: tcc))?.readData(ofLength: 1) != nil
+        let databases = [home.appending(path: "Library/Application Support/com.apple.TCC/TCC.db"),
+                         URL(filePath: "/Library/Application Support/com.apple.TCC/TCC.db")]
+        if databases.contains(where: { (try? FileHandle(forReadingFrom: $0)) != nil }) { return true }
+        return (try? FileManager.default.contentsOfDirectory(atPath: home.appending(path: "Library/Safari").path)) != nil
     }
 
     /// Runs a full scan. `progress` receives a short label for each step.

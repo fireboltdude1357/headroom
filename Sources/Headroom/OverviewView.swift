@@ -199,6 +199,15 @@ private struct GridSection: View {
 enum FullDiskAccess {
     static var isGranted: Bool { Scanner.hasFullDiskAccess(home: FileManager.default.homeDirectoryForCurrentUser) }
 
+    /// Starts a fresh copy and quits this one, for when macOS applies access only to a new process.
+    static func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+    }
+
     static func openSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
             NSWorkspace.shared.open(url)
