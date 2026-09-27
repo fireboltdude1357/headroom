@@ -22,10 +22,14 @@ struct OnboardingView: View {
                 case .access: access
                 }
             }
-            .frame(maxWidth: 520)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // A fixed column width gives the wrapping text a real width when the window measures
+            // its content. Without it the text is measured one word per line and the window grows
+            // taller than the screen.
+            .frame(width: 520)
             .padding(40)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .frame(minWidth: 640, minHeight: 560)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.recheckFullDiskAccess()
         }

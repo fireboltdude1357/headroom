@@ -22,7 +22,8 @@ enum SnapshotRenderer {
             let onboarding = AppModel()
             onboarding.hasFullDiskAccess = false
             func onboardingShot(_ name: String, _ view: some View) {
-                render(view.environment(onboarding).frame(width: windowSize.width, height: windowSize.height), size: nil,
+                // Rendered at the view's own fitting size, the same size a window would pick for it.
+                render(view.environment(onboarding), size: nil,
                        appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png"))
             }
             onboardingShot("onboarding-welcome", OnboardingView(step: .welcome, hasFullDiskAccess: false))

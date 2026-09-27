@@ -63,7 +63,9 @@ public struct Scanner: Sendable {
                 let url = home.appending(path: relative, directoryHint: .isDirectory)
                 catalogPaths.append(url)
                 // Even checking that a protected path exists counts as touching it, so skip it outright.
-                if Catalog.needsFullDiskAccess(relative) && !fullDiskAccess { continue }
+                if !fullDiskAccess && (Catalog.needsFullDiskAccess(relative) || Catalog.needsFullDiskAccess(url, home: home)) {
+                    continue
+                }
                 if DiskMeasure.exists(url) { paths.append(url) }
             }
             guard !paths.isEmpty else { continue }

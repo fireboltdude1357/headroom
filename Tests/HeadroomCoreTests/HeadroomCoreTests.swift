@@ -287,5 +287,14 @@ struct FolderTrash: Trasher {
         let relative = box.root.appending(path: "work")
         try FileManager.default.createSymbolicLink(atPath: relative.path, withDestinationPath: "Documents/code")
         #expect(Catalog.needsFullDiskAccess(relative, home: box.root))
+
+        // A chain of links, and a link partway down a path, both lead into Documents.
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "alias").path, withDestinationPath: "Documents")
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "chain").path, withDestinationPath: "alias")
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "chain"), home: box.root))
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "alias/code"), home: box.root))
+
+        try box.file("plain/readme.md")
+        #expect(!Catalog.needsFullDiskAccess(box.root.appending(path: "plain"), home: box.root))
     }
 }

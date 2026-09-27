@@ -178,7 +178,8 @@ struct EmptyState: View {
             Text("Headroom measures caches, build folders, old backups and leftovers, then explains what each one is before you move anything to the Trash.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: 420)
+                .frame(width: 420)
+                .fixedSize(horizontal: false, vertical: true)
             if let progress = model.scanProgress {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -212,7 +213,7 @@ private struct AccessStep: View {
             Button("Open Full Disk Access settings") { FullDiskAccess.openSettings() }
         }
         .padding(16)
-        .frame(maxWidth: 460, alignment: .leading)
+        .frame(width: 460, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 }

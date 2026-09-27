@@ -182,15 +182,39 @@ public enum Catalog {
         protectedPrefixes.contains { relativePath == $0 || relativePath.hasPrefix($0 + "/") }
     }
 
-    /// A ~/code symlink into Documents counts as Documents. The link is read, not followed, because
-    /// even looking up a path inside Documents can raise the prompt.
+    /// True if `url`, or anywhere its symlinks lead, is inside a protected location. Even looking up a
+    /// path inside Documents can raise the prompt, so this resolves the path one component at a time
+    /// with readlink and stops before touching anything protected. Chains like ~/work -> ~/alias ->
+    /// ~/Documents count as Documents.
     public static func needsFullDiskAccess(_ url: URL, home: URL) -> Bool {
-        let homes = Set([home, home.resolvingSymlinksInPath()].map { $0.standardizedFileURL.path + "/" })
-        let target = (try? FileManager.default.destinationOfSymbolicLink(atPath: url.path))
-            .map { $0.hasPrefix("/") ? URL(filePath: $0) : url.deletingLastPathComponent().appending(path: $0) }
-        return ([url] + (target.map { [$0] } ?? [])).contains { candidate in
-            let path = candidate.standardizedFileURL.path
-            return homes.contains { path.hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
+        // realpath, because Foundation's resolving rewrites /private/var back to /var.
+        let real = realpath(home.path, nil).map { pointer in
+            defer { free(pointer) }
+            return String(cString: pointer)
         }
+        let homes = Set(([home.path] + (real.map { [$0] } ?? [])).map { $0.hasSuffix("/") ? $0 : $0 + "/" })
+        func isProtected(_ path: String) -> Bool {
+            homes.contains { (path + "/").hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
+        }
+        // Plain string paths: standardizedFileURL rewrites /private/var back to /var, which would loop.
+        func components(_ path: String) -> [String] { path.split(separator: "/").map(String.init).reversed() }
+        var remaining = components(url.path)
+        var resolved: [String] = []
+        var hops = 0
+        while let component = remaining.popLast() {
+            if component == "." { continue }
+            if component == ".." { _ = resolved.popLast(); continue }
+            let next = "/" + (resolved + [component]).joined(separator: "/")
+            if isProtected(next) { return true }
+            guard let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: next) else {
+                resolved.append(component)
+                continue
+            }
+            hops += 1
+            guard hops <= 32 else { return true } // A link loop; skipping is the safe answer.
+            if destination.hasPrefix("/") { resolved = [] }
+            remaining += components(destination)
+        }
+        return false
     }
 }
