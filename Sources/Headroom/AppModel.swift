@@ -57,6 +57,8 @@ final class AppModel {
     let background = BackgroundTasks()
 
     init() {
+        // Cleanup and restore touch the same files a scan does, so they follow the same rule.
+        DiskMeasure.neverDownload()
         history = HistoryStore(file: AppFiles.history)
         trashLog = TrashLog(file: AppFiles.trashLog)
         scan = Self.loadLastScan()
@@ -200,7 +202,8 @@ final class AppModel {
         scanProgress = "Starting"
         selected = []
         let progress = ProgressRelay { [weak self] text in
-            Task { @MainActor in self?.scanProgress = text }
+            // Updates arrive as separate tasks, so ignore any that land after the scan ended.
+            Task { @MainActor in if self?.scanProgress != nil { self?.scanProgress = text } }
         }
         let result = await Task.detached(priority: .userInitiated) {
             await Scanner().scan(progress: { progress.report($0) })
