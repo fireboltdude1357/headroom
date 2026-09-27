@@ -8,16 +8,19 @@
   --color-accent: #0f7a77;
   --color-accent-bright: #3cc4be;
   --color-accent-strong: #0d5473;
-  --color-ink: #1d1d1f;
-  --color-ink-muted: #6e6e73;
-  --color-paper: #ffffff;
-  --color-paper-2: #f5f5f7;
-  --color-line: #e5e5ea;
-  --color-ink-dark: #f5f5f7;
-  --color-ink-muted-dark: #a1a1a6;
-  --color-paper-dark: #111113;
-  --color-paper-2-dark: #1c1c1e;
-  --color-line-dark: #2c2c2e;
+  /* Warm paper rather than Apple grey, so the page reads as its own thing. */
+  --color-ink: #1f1d1a;
+  --color-ink-muted: #6b665d;
+  --color-paper: #fbfaf6;
+  --color-paper-2: #f3f0e8;
+  --color-paper-3: #ebe6da;
+  --color-line: #e2ddd1;
+  --color-ink-dark: #f2efe8;
+  --color-ink-muted-dark: #a39e93;
+  --color-paper-dark: #131210;
+  --color-paper-2-dark: #1b1a17;
+  --color-paper-3-dark: #222019;
+  --color-line-dark: #2e2c27;
 }
 
 html {
