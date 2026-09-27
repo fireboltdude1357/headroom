@@ -52,7 +52,7 @@ The first scan looks inside Documents, Desktop, Downloads and iCloud Drive, so m
 
 ## Website
 
-The site is live at https://headroom-pink.vercel.app. `Headroom.dmg` isn't in git, so deploy from a machine that has a fresh build:
+The site is live at https://headroom.architechsolutions.net. `Headroom.dmg` isn't in git, so deploy from a machine that has a fresh build:
 
 ```sh
 scripts/bundle.sh                        # on a Mac
@@ -64,3 +64,7 @@ vercel build --prod && vercel deploy --prebuilt --prod
 ```
 
 `pnpm shots` in `site/` turns the PNGs from `--snapshot` into the site's WebP screenshots.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
