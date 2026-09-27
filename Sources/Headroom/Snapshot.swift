@@ -19,6 +19,17 @@ enum SnapshotRenderer {
         }
 
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            let onboarding = AppModel()
+            onboarding.hasFullDiskAccess = false
+            func onboardingShot(_ name: String, _ view: some View) {
+                // Rendered at the view's own fitting size, the same size a window would pick for it.
+                render(view.environment(onboarding), size: nil,
+                       appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png"))
+            }
+            onboardingShot("onboarding", OnboardingView(watchesAccess: false))
+            onboardingShot("onboarding-waiting", OnboardingView(openedSettings: true, watchesAccess: false))
+            onboardingShot("empty", EmptyState())
+
             let model = AppModel()
             model.loadExample()
             func shot(_ name: String) { renderMain(model, appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png")) }

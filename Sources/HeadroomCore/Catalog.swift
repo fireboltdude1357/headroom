@@ -154,9 +154,10 @@ public enum Catalog {
               paths: ["Library/iTunes/iPad Software Updates"]),
     ]
 
-    /// Locations macOS hides from apps without Full Disk Access. Headroom skips them rather than trigger
-    /// a permission prompt for every sandboxed app.
+    /// Locations macOS guards behind a privacy prompt, one prompt per folder or app. Without Full Disk
+    /// Access Headroom skips them, so the only permission it ever asks for is Full Disk Access itself.
     public static let protectedPrefixes = [
+        "Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Library/Mobile Documents",
         "Library/Containers", "Library/Group Containers", "Library/Mail", "Library/Messages",
         "Library/Safari", "Library/Application Support/MobileSync",
     ]
@@ -164,17 +165,63 @@ public enum Catalog {
     /// True for app-managed locations such as the Photos library, or any folder that contains one.
     /// Cleanup refuses these even if a finding somehow points at them.
     public static func isProtected(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
-        // Compare resolved paths too, so a symlink into iCloud Drive doesn't sneak past.
+        // Compare resolved paths too, so a symlink into iCloud Drive or a simulator folder moved to
+        // another drive doesn't sneak past. Resolving a path macOS guards looks it up and makes macOS
+        // prompt, so without Full Disk Access only those paths skip resolving.
         let candidates = [url, url.resolvingSymlinksInPath()]
+        let homes = [home, home.resolvingSymlinksInPath()]
+        let fullDiskAccess = Scanner.hasFullDiskAccess(home: home)
         return sources.lazy.filter { $0.consequence == .appManaged }
-            .flatMap { $0.resolvedPaths(home: home) }
-            .contains { protected in
-                let resolved = protected.resolvingSymlinksInPath()
-                return candidates.contains { DiskMeasure.overlaps(protected, $0) || DiskMeasure.overlaps(resolved, $0) }
+            .flatMap { source in source.paths.flatMap { relative in homes.map { (relative, $0.appending(path: relative, directoryHint: .isDirectory)) } } }
+            .flatMap { relative, path in
+                fullDiskAccess || !needsFullDiskAccess(relative) ? [path, path.resolvingSymlinksInPath()] : [path]
             }
+            .contains { protected in candidates.contains { DiskMeasure.overlaps(protected, $0) } }
     }
 
+    /// `relativePath` is relative to the home folder, like "Documents/code". Case-insensitive, like
+    /// the default APFS volume, so a link to ~/documents counts too.
     public static func needsFullDiskAccess(_ relativePath: String) -> Bool {
-        protectedPrefixes.contains { relativePath.hasPrefix($0) }
+        let path = relativePath.lowercased()
+        return protectedPrefixes.lazy.map { $0.lowercased() }.contains { path == $0 || path.hasPrefix($0 + "/") }
+    }
+
+    /// True if `url`, or anywhere its symlinks lead, is inside a protected location. Even looking up a
+    /// path inside Documents can raise the prompt, so this resolves the path one component at a time
+    /// with readlink and stops before touching anything protected. Chains like ~/work -> ~/alias ->
+    /// ~/Documents count as Documents.
+    public static func needsFullDiskAccess(_ url: URL, home: URL) -> Bool {
+        // realpath, because Foundation's resolving rewrites /private/var back to /var.
+        let real = realpath(home.path, nil).map { pointer in
+            defer { free(pointer) }
+            return String(cString: pointer)
+        }
+        // /System/Volumes/Data is the same home folder under another name.
+        let names = [home.path] + (real.map { [$0, "/System/Volumes/Data" + $0] } ?? [])
+        let homes = Set(names.map { ($0.hasSuffix("/") ? $0 : $0 + "/").lowercased() })
+        func isProtected(_ path: String) -> Bool {
+            let lowered = (path + "/").lowercased()
+            return homes.contains { lowered.hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
+        }
+        // Plain string paths: standardizedFileURL rewrites /private/var back to /var, which would loop.
+        func components(_ path: String) -> [String] { path.split(separator: "/").map(String.init).reversed() }
+        var remaining = components(url.path)
+        var resolved: [String] = []
+        var hops = 0
+        while let component = remaining.popLast() {
+            if component == "." { continue }
+            if component == ".." { _ = resolved.popLast(); continue }
+            let next = "/" + (resolved + [component]).joined(separator: "/")
+            if isProtected(next) { return true }
+            guard let destination = try? FileManager.default.destinationOfSymbolicLink(atPath: next) else {
+                resolved.append(component)
+                continue
+            }
+            hops += 1
+            guard hops <= 32 else { return true } // A link loop; skipping is the safe answer.
+            if destination.hasPrefix("/") { resolved = [] }
+            remaining += components(destination)
+        }
+        return false
     }
 }

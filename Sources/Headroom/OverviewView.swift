@@ -10,7 +10,7 @@ struct OverviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     DiskSection(scan: scan)
-                    if !scan.unreadable.isEmpty {
+                    if !scan.unreadable.isEmpty || !scan.hasFullDiskAccess {
                         AccessNotice(unreadable: scan.unreadable, needsFullDiskAccess: !scan.hasFullDiskAccess)
                     }
                     if !model.insights.isEmpty { InsightsSection(insights: model.insights) }
@@ -81,12 +81,13 @@ private struct AccessNotice: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Some folders couldn't be read", systemImage: "lock")
+            Label(needsFullDiskAccess ? "Some folders were skipped" : "Some folders couldn't be read", systemImage: "lock")
                 .font(.headline)
             Text(needsFullDiskAccess
-                 ? "Headroom needs Full Disk Access to measure these. Totals are lower than the real usage."
+                 ? "Without Full Disk Access, Headroom skips Desktop, Documents, Downloads, iCloud Drive, Photos, Mail, Messages and other apps' data, so totals are lower than real usage."
                  : "Some folders couldn't be read, so their sizes are lower bounds.")
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             ForEach(unreadable.prefix(6), id: \.self) { url in
                 Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                     .font(.callout.monospaced())
@@ -96,11 +97,7 @@ private struct AccessNotice: View {
                 Text("and \(unreadable.count - 6) more").font(.callout).foregroundStyle(.secondary)
             }
             if needsFullDiskAccess {
-                Button("Open Full Disk Access settings") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+                Button("Open Full Disk Access settings") { FullDiskAccess.openSettings() }
             }
         }
         .padding(16)
@@ -194,5 +191,28 @@ private struct GridSection: View {
         let squares = slices.reduce(0) { $0 + Int((Double($1.1) / Double(squareBytes)).rounded(.up)) }
         let rows = (squares + columns - 1) / columns
         return CGFloat(rows) * (cell + gap)
+    }
+}
+
+/// Full Disk Access is the one permission Headroom asks for. It replaces macOS's separate prompts
+/// for Desktop, Documents, Downloads, iCloud Drive, Photos and other apps' data.
+enum FullDiskAccess {
+    static var isGranted: Bool { Scanner.hasFullDiskAccess(home: FileManager.default.homeDirectoryForCurrentUser) }
+
+    /// Starts a fresh copy and quits this one, for when macOS applies access only to a new process.
+    static func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        // Quit only once the new copy is running, so a failed launch doesn't just close Headroom.
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { app, error in
+            guard app != nil, error == nil else { return }
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+    }
+
+    static func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }

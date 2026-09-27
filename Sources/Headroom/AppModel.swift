@@ -33,6 +33,11 @@ final class AppModel {
     /// Findings removed by a simulated cleanup, keyed by record id, so Restore can put them back.
     private var exampleRemoved: [TrashRecord.ID: Finding] = [:]
     var isExample = false
+    /// Read at launch, and every second while onboarding waits for the switch.
+    var hasFullDiskAccess = FullDiskAccess.isGranted
+    /// True until the first-launch onboarding ends with a scan or a skip.
+    /// People who scanned before onboarding existed skip it.
+    var showOnboarding = false
 
     var sidebar: SidebarItem? = .overview
     var selected: Set<String> = []
@@ -55,6 +60,7 @@ final class AppModel {
         history = HistoryStore(file: AppFiles.history)
         trashLog = TrashLog(file: AppFiles.trashLog)
         scan = Self.loadLastScan()
+        showOnboarding = scan == nil && !UserDefaults.standard.bool(forKey: Prefs.onboarded)
     }
 
     private static func loadLastScan() -> ScanResult? {
@@ -147,6 +153,17 @@ final class AppModel {
 
     // MARK: Scanning
 
+    func recheckFullDiskAccess() {
+        let granted = FullDiskAccess.isGranted
+        if granted != hasFullDiskAccess { hasFullDiskAccess = granted }
+    }
+
+    func finishOnboarding(scan: Bool) {
+        UserDefaults.standard.set(true, forKey: Prefs.onboarded)
+        showOnboarding = false
+        if scan { Task { await runScan() } }
+    }
+
     func loadExample() {
         guard !isBusy else { return }
         generation += 1
@@ -173,6 +190,7 @@ final class AppModel {
         expanded = []
         summary = nil
         scan = Self.loadLastScan()
+        showOnboarding = scan == nil && !UserDefaults.standard.bool(forKey: Prefs.onboarded)
     }
 
     func runScan() async {

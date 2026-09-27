@@ -267,3 +267,48 @@ struct FolderTrash: Trasher {
         #expect(backups[0].0.warning != nil)
     }
 }
+
+@Suite struct FullDiskAccessTests {
+    @Test func coversPromptingFoldersWithoutMatchingLookalikes() throws {
+        let home = URL(filePath: "/Users/me")
+        #expect(Catalog.needsFullDiskAccess(home.appending(path: "Documents/code"), home: home))
+        #expect(Catalog.needsFullDiskAccess(home.appending(path: "Library/Mobile Documents"), home: home))
+        #expect(!Catalog.needsFullDiskAccess(home.appending(path: "DocumentsArchive"), home: home))
+        #expect(!Catalog.needsFullDiskAccess(home.appending(path: "code"), home: home))
+    }
+
+    @Test func followsSymlinksIntoProtectedFolders() throws {
+        let box = try Sandbox()
+        try box.file("Documents/code/readme.md")
+        let link = box.root.appending(path: "code")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: box.root.appending(path: "Documents/code"))
+        #expect(Catalog.needsFullDiskAccess(link, home: box.root))
+
+        let relative = box.root.appending(path: "work")
+        try FileManager.default.createSymbolicLink(atPath: relative.path, withDestinationPath: "Documents/code")
+        #expect(Catalog.needsFullDiskAccess(relative, home: box.root))
+
+        // A chain of links, and a link partway down a path, both lead into Documents.
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "alias").path, withDestinationPath: "Documents")
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "chain").path, withDestinationPath: "alias")
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "chain"), home: box.root))
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "alias/code"), home: box.root))
+
+        try box.file("plain/readme.md")
+        #expect(!Catalog.needsFullDiskAccess(box.root.appending(path: "plain"), home: box.root))
+
+        // APFS ignores case by default, so ~/documents is Documents.
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "lower").path, withDestinationPath: "documents")
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "lower"), home: box.root))
+    }
+
+    @Test func cleanupStillFollowsMovedSimulatorDevices() throws {
+        // Simulator devices moved to another drive and linked back must still be off-limits.
+        let box = try Sandbox()
+        let external = try box.file("external/Devices/ABC/device.plist").deletingLastPathComponent().deletingLastPathComponent()
+        try box.file("home/Library/Developer/CoreSimulator/keep")
+        try FileManager.default.createSymbolicLink(at: box.root.appending(path: "home/Library/Developer/CoreSimulator/Devices"),
+                                                   withDestinationURL: external)
+        #expect(Catalog.isProtected(external.appending(path: "ABC"), home: box.root.appending(path: "home")))
+    }
+}

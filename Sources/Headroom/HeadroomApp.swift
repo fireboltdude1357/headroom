@@ -22,19 +22,25 @@ struct HeadroomApp: App {
 
     var body: some Scene {
         Window("Headroom", id: "main") {
-            ContentView()
-                .environment(model)
-                .onAppear {
-                    model.background.runScan = { await model.runScan() }
-                    model.background.refresh()
+            Group {
+                if model.showOnboarding {
+                    OnboardingView()
+                } else {
+                    ContentView()
                 }
+            }
+            .environment(model)
+            .onAppear {
+                model.background.runScan = { await model.runScan() }
+                model.background.refresh()
+            }
         }
         .defaultSize(width: 1100, height: 720)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("Scan") { Task { await model.runScan() } }
                     .keyboardShortcut("n")
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || model.showOnboarding)
                 Button("Rescan") { Task { await model.runScan() } }
                     .keyboardShortcut("r")
                     .disabled(model.isBusy || model.scan == nil)
@@ -172,13 +178,15 @@ struct EmptyState: View {
             Text("Headroom measures caches, build folders, old backups and leftovers, then explains what each one is before you move anything to the Trash.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
-                .frame(maxWidth: 420)
+                .frame(width: 420)
+                .fixedSize(horizontal: false, vertical: true)
             if let progress = model.scanProgress {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text(progress).foregroundStyle(.secondary)
                 }
             } else {
+                if !model.hasFullDiskAccess { AccessStep() }
                 HStack {
                     Button("Scan this Mac") { Task { await model.runScan() } }.buttonStyle(.borderedProminent)
                     Button("Try example data") { model.loadExample() }.disabled(model.isBusy)
@@ -187,5 +195,25 @@ struct EmptyState: View {
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Asks for Full Disk Access once, up front, instead of letting macOS prompt folder by folder.
+private struct AccessStep: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Give Headroom Full Disk Access", systemImage: "lock.open").font(.headline)
+            Text("One switch covers Desktop, Documents, Downloads, iCloud Drive and other apps' data, so macOS won't ask about each folder. Without it, Headroom skips those folders.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Turn on Headroom in the list, then choose Quit & Reopen. If it isn't listed, click + and pick Headroom from Applications.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Open Full Disk Access settings") { FullDiskAccess.openSettings() }
+        }
+        .padding(16)
+        .frame(width: 460, alignment: .leading)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
     }
 }
