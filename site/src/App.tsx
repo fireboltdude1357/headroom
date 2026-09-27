@@ -112,7 +112,7 @@ function Nav() {
   );
 }
 
-/** Lines from the app's example scan, largest first. */
+/** A sample of lines from the app's example scan, not its ten largest. */
 const receipt: [string, number, Tag][] = [
   ["Sam's iPhone 16 backup", 63.2, "personal"],
   ["Photos library", 61.3, "managed"],
@@ -163,7 +163,7 @@ function Hero() {
                   <span className="hidden sm:inline">
                     <TagPill tag={tag} />
                   </span>
-                  <span className="min-w-4 flex-1 border-b border-dotted border-ink-muted/40" />
+                  <span className="min-w-4 flex-1 border-b border-dotted border-ink-muted/40 dark:border-ink-muted-dark/40" />
                   <span className="tabular-nums">{size.toFixed(1)} GB</span>
                 </li>
               ))}
@@ -179,7 +179,7 @@ function Hero() {
             </div>
           </div>
           <p className="mt-3 text-center text-xs text-ink-muted dark:text-ink-muted-dark">
-            From the example scan built into the app. Yours will look different.
+            A sample from the example scan built into the app. Yours will look different.
           </p>
         </div>
       </Container>
@@ -213,7 +213,7 @@ const steps: Step[] = [
   },
   {
     title: "Pick",
-    body: "Nothing starts ticked. Build folders only count when the project's own files confirm them, such as package.json next to node_modules, and each shows when you last worked on it. Select untouched ticks every project nobody has opened in 90 days.",
+    body: "Nothing starts ticked. Build folders only count when the project's own files confirm them, such as package.json next to node_modules, and each shows when you last worked on it. Select untouched ticks every project nobody has changed in 90 days.",
     shot: "projects",
     alt: "The Project build folders list with four untouched projects checked and a Select untouched button.",
   },
@@ -256,7 +256,7 @@ function Steps() {
 
 function MenuBar() {
   const lines: [string, string][] = [
-    ["Fill estimate", "Each scan is compared with the last, so Headroom can guess roughly when the disk fills if nothing changes."],
+    ["Fill estimate", "Headroom fits a trend through your recent scans to guess roughly when the disk fills if nothing changes."],
     ["Worth a look", "Sources that grew since last time and projects gone untouched, each one click away."],
     ["Weekly check", "An optional background scan. Off until you turn it on."],
     ["Low space alert", "A notification when free space drops under 10%."],
@@ -288,7 +288,7 @@ function HandsOff() {
     ["Messages attachments", "Messages"],
     ["iCloud Drive", "iCloud"],
     ["Docker disk image", "Docker"],
-    ["Simulator devices", "Xcode"],
+    ["Simulator devices", "Simulator"],
   ];
   return (
     <Section id="hands-off" tone="tint">
@@ -315,8 +315,9 @@ function FinePrint() {
     ["Network", "None. No update check, no license check, no crash reports. A firewall will show nothing."],
     ["Account and analytics", "Neither. The app keeps three small JSON files in Application Support: the last scan, scan history and the Trash log."],
     ["What it reads", "File names, sizes and dates. It never opens your documents, photos or messages."],
-    ["Full Disk Access", "Optional. Without it, Headroom skips Mail, Messages, device backups and app containers, and lists what it couldn't read."],
+    ["Full Disk Access", "Optional. Without it, Headroom skips Mail, Messages, device backups, app containers, and your Documents, Desktop and Downloads folders, and lists what it couldn't read."],
     ["Signing", "Signed with an Apple Developer ID and notarized by Apple, so macOS opens it without a warning."],
+    ["Source", "Open source under the MIT license, on GitHub at fireboltdude1357/headroom."],
     ["Extras", "Example data mode to try everything without touching your disk, and CSV export of any scan (⌘E)."],
   ];
   return (
@@ -373,8 +374,8 @@ function Faq() {
         {faq.map(([question, answer]) => (
           <details key={question} className="group py-4">
             <summary className="flex cursor-pointer items-baseline gap-4 font-medium">
-              <span className="w-4 shrink-0 font-mono text-accent group-open:hidden dark:text-accent-bright">+</span>
-              <span className="hidden w-4 shrink-0 font-mono text-accent group-open:inline dark:text-accent-bright">−</span>
+              <span aria-hidden="true" className="w-4 shrink-0 font-mono text-accent group-open:hidden dark:text-accent-bright">+</span>
+              <span aria-hidden="true" className="hidden w-4 shrink-0 font-mono text-accent group-open:inline dark:text-accent-bright">−</span>
               {question}
             </summary>
             <p className="mt-2 pl-8 text-ink-muted dark:text-ink-muted-dark">{answer}</p>
@@ -398,6 +399,10 @@ function Footer() {
             A disk analyzer that explains itself. Made by{" "}
             <a href="https://architechsolutions.net" className="underline hover:text-ink dark:hover:text-ink-dark">
               Architech Solutions
+            </a>
+            . Open source on{" "}
+            <a href="https://github.com/fireboltdude1357/headroom" className="underline hover:text-ink dark:hover:text-ink-dark">
+              GitHub
             </a>
             .
           </p>

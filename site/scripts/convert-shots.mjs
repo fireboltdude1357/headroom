@@ -10,7 +10,7 @@ await mkdir(target, { recursive: true });
 // [name, max width in px]. Window shots are 2200 wide at 2x; 1600 is plenty for a 800pt column at 2x.
 const shots = [
   ["overview", 1600], ["projects", 1600], ["category-expanded", 1600], ["trash", 1600],
-  ["review", 1120], ["result", 920], ["menubar", 640],
+  ["review", 1120], ["menubar", 640],
 ];
 
 for (const [name, width] of shots) {
