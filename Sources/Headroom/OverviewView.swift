@@ -10,7 +10,7 @@ struct OverviewView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     DiskSection(scan: scan)
-                    if !scan.unreadable.isEmpty {
+                    if !scan.unreadable.isEmpty || !scan.hasFullDiskAccess {
                         AccessNotice(unreadable: scan.unreadable, needsFullDiskAccess: !scan.hasFullDiskAccess)
                     }
                     if !model.insights.isEmpty { InsightsSection(insights: model.insights) }
@@ -81,12 +81,13 @@ private struct AccessNotice: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Some folders couldn't be read", systemImage: "lock")
+            Label(needsFullDiskAccess ? "Some folders were skipped" : "Some folders couldn't be read", systemImage: "lock")
                 .font(.headline)
             Text(needsFullDiskAccess
-                 ? "Headroom skips these without Full Disk Access, so totals are lower than real usage. Turn it on once to include them all."
+                 ? "Without Full Disk Access, Headroom skips Desktop, Documents, Downloads, iCloud Drive, Photos, Mail, Messages and other apps' data, so totals are lower than real usage."
                  : "Some folders couldn't be read, so their sizes are lower bounds.")
                 .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             ForEach(unreadable.prefix(6), id: \.self) { url in
                 Text(url.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                     .font(.callout.monospaced())

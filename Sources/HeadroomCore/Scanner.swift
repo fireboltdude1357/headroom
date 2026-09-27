@@ -62,10 +62,8 @@ public struct Scanner: Sendable {
             for relative in source.paths {
                 let url = home.appending(path: relative, directoryHint: .isDirectory)
                 catalogPaths.append(url)
-                if Catalog.needsFullDiskAccess(relative) && !fullDiskAccess {
-                    if DiskMeasure.exists(url) { unreadable.append(url) }
-                    continue
-                }
+                // Even checking that a protected path exists counts as touching it, so skip it outright.
+                if Catalog.needsFullDiskAccess(relative) && !fullDiskAccess { continue }
                 if DiskMeasure.exists(url) { paths.append(url) }
             }
             guard !paths.isEmpty else { continue }
@@ -78,20 +76,11 @@ public struct Scanner: Sendable {
 
         progress("Looking for project build folders")
         var finder = projectFinder
-        if !fullDiskAccess {
-            // attributesOfItem doesn't follow symlinks, so it never looks inside a protected folder.
-            unreadable += finder.roots.filter {
-                Catalog.needsFullDiskAccess($0, home: home) && (try? FileManager.default.attributesOfItem(atPath: $0.path)) != nil
-            }
-            finder.roots.removeAll { Catalog.needsFullDiskAccess($0, home: home) }
-        }
+        if !fullDiskAccess { finder.roots.removeAll { Catalog.needsFullDiskAccess($0, home: home) } }
         for candidate in finder.candidates() { jobs.append(.project(candidate, finder)) }
 
         if fullDiskAccess {
             for (finding, _) in discoveries.deviceBackups() { jobs.append(.finding(finding)) }
-        } else {
-            let backups = home.appending(path: "Library/Application Support/MobileSync/Backup")
-            if DiskMeasure.exists(backups) { unreadable.append(backups) }
         }
 
         // Skip folders the catalog already covers, including ones that merely contain a catalog path,
@@ -103,8 +92,6 @@ public struct Scanner: Sendable {
             jobs.append(.appFolder(folder))
         }
 
-        let downloads = home.appending(path: "Downloads", directoryHint: .isDirectory)
-        if !fullDiskAccess && DiskMeasure.exists(downloads) { unreadable.append(downloads) }
         var findings = (fullDiskAccess ? discoveries.oldInstallers() : []).map { finding in
             var finding = finding
             finding.fileNumbers = Self.fileNumbers(finding.paths)

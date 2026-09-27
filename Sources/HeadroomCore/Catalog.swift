@@ -165,14 +165,16 @@ public enum Catalog {
     /// True for app-managed locations such as the Photos library, or any folder that contains one.
     /// Cleanup refuses these even if a finding somehow points at them.
     public static func isProtected(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
-        // Compare resolved paths too, so a symlink into iCloud Drive doesn't sneak past.
+        // Compare resolved paths too, so a symlink into iCloud Drive doesn't sneak past. Without Full Disk
+        // Access, resolving a protected path looks it up and makes macOS prompt, so only the home folder
+        // is resolved on that side then.
         let candidates = [url, url.resolvingSymlinksInPath()]
+        let homes = [home, home.resolvingSymlinksInPath()]
+        let resolveProtected = Scanner.hasFullDiskAccess(home: home)
         return sources.lazy.filter { $0.consequence == .appManaged }
-            .flatMap { $0.resolvedPaths(home: home) }
-            .contains { protected in
-                let resolved = protected.resolvingSymlinksInPath()
-                return candidates.contains { DiskMeasure.overlaps(protected, $0) || DiskMeasure.overlaps(resolved, $0) }
-            }
+            .flatMap { source in homes.flatMap(source.resolvedPaths) }
+            .flatMap { resolveProtected ? [$0, $0.resolvingSymlinksInPath()] : [$0] }
+            .contains { protected in candidates.contains { DiskMeasure.overlaps(protected, $0) } }
     }
 
     /// `relativePath` is relative to the home folder, like "Documents/code".

@@ -33,8 +33,10 @@ final class AppModel {
     /// Findings removed by a simulated cleanup, keyed by record id, so Restore can put them back.
     private var exampleRemoved: [TrashRecord.ID: Finding] = [:]
     var isExample = false
-    /// Read once at launch; macOS only applies a Full Disk Access change after a relaunch.
+    /// Read at launch and again whenever onboarding comes back to the front.
     var hasFullDiskAccess = FullDiskAccess.isGranted
+    /// True until the first-launch onboarding ends with a scan or a skip.
+    var showOnboarding = !UserDefaults.standard.bool(forKey: Prefs.onboarded)
 
     var sidebar: SidebarItem? = .overview
     var selected: Set<String> = []
@@ -148,6 +150,16 @@ final class AppModel {
     }
 
     // MARK: Scanning
+
+    func recheckFullDiskAccess() {
+        hasFullDiskAccess = FullDiskAccess.isGranted
+    }
+
+    func finishOnboarding(scan: Bool) {
+        UserDefaults.standard.set(true, forKey: Prefs.onboarded)
+        showOnboarding = false
+        if scan { Task { await runScan() } }
+    }
 
     func loadExample() {
         guard !isBusy else { return }

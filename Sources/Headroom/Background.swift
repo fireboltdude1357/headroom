@@ -9,6 +9,7 @@ enum Prefs {
     static let weeklyCheck = "weeklyCheck"
     static let lowSpaceAlert = "lowSpaceAlert"
     static let lastLowSpaceAlert = "lastLowSpaceAlert"
+    static let onboarded = "onboarded"
 
     static func register() {
         UserDefaults.standard.register(defaults: [weeklyCheck: false, lowSpaceAlert: true])

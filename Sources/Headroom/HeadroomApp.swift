@@ -22,12 +22,18 @@ struct HeadroomApp: App {
 
     var body: some Scene {
         Window("Headroom", id: "main") {
-            ContentView()
-                .environment(model)
-                .onAppear {
-                    model.background.runScan = { await model.runScan() }
-                    model.background.refresh()
+            Group {
+                if model.showOnboarding {
+                    OnboardingView(hasFullDiskAccess: model.hasFullDiskAccess)
+                } else {
+                    ContentView()
                 }
+            }
+            .environment(model)
+            .onAppear {
+                model.background.runScan = { await model.runScan() }
+                model.background.refresh()
+            }
         }
         .defaultSize(width: 1100, height: 720)
         .commands {

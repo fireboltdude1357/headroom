@@ -19,10 +19,17 @@ enum SnapshotRenderer {
         }
 
         for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
-            let welcome = AppModel()
-            welcome.hasFullDiskAccess = false
-            render(EmptyState().environment(welcome).frame(width: 860, height: 620), size: nil,
-                   appearance: appearance, to: outputDir.appending(path: "welcome-\(suffix).png"))
+            let onboarding = AppModel()
+            onboarding.hasFullDiskAccess = false
+            func onboardingShot(_ name: String, _ view: some View) {
+                render(view.environment(onboarding).frame(width: windowSize.width, height: windowSize.height), size: nil,
+                       appearance: appearance, to: outputDir.appending(path: "\(name)-\(suffix).png"))
+            }
+            onboardingShot("onboarding-welcome", OnboardingView(step: .welcome, hasFullDiskAccess: false))
+            onboardingShot("onboarding-access", OnboardingView(step: .access, hasFullDiskAccess: false))
+            onboardingShot("empty", EmptyState())
+            onboarding.hasFullDiskAccess = true
+            onboardingShot("onboarding-granted", OnboardingView(step: .access, hasFullDiskAccess: true))
 
             let model = AppModel()
             model.loadExample()
