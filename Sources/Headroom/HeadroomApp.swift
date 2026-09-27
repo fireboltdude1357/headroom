@@ -40,7 +40,7 @@ struct HeadroomApp: App {
             CommandGroup(after: .newItem) {
                 Button("Scan") { Task { await model.runScan() } }
                     .keyboardShortcut("n")
-                    .disabled(model.isBusy)
+                    .disabled(model.isBusy || model.showOnboarding)
                 Button("Rescan") { Task { await model.runScan() } }
                     .keyboardShortcut("r")
                     .disabled(model.isBusy || model.scan == nil)

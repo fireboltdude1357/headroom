@@ -165,21 +165,25 @@ public enum Catalog {
     /// True for app-managed locations such as the Photos library, or any folder that contains one.
     /// Cleanup refuses these even if a finding somehow points at them.
     public static func isProtected(_ url: URL, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> Bool {
-        // Compare resolved paths too, so a symlink into iCloud Drive doesn't sneak past. Without Full Disk
-        // Access, resolving a protected path looks it up and makes macOS prompt, so only the home folder
-        // is resolved on that side then.
+        // Compare resolved paths too, so a symlink into iCloud Drive or a simulator folder moved to
+        // another drive doesn't sneak past. Resolving a path macOS guards looks it up and makes macOS
+        // prompt, so without Full Disk Access only those paths skip resolving.
         let candidates = [url, url.resolvingSymlinksInPath()]
         let homes = [home, home.resolvingSymlinksInPath()]
-        let resolveProtected = Scanner.hasFullDiskAccess(home: home)
+        let fullDiskAccess = Scanner.hasFullDiskAccess(home: home)
         return sources.lazy.filter { $0.consequence == .appManaged }
-            .flatMap { source in homes.flatMap(source.resolvedPaths) }
-            .flatMap { resolveProtected ? [$0, $0.resolvingSymlinksInPath()] : [$0] }
+            .flatMap { source in source.paths.flatMap { relative in homes.map { (relative, $0.appending(path: relative, directoryHint: .isDirectory)) } } }
+            .flatMap { relative, path in
+                fullDiskAccess || !needsFullDiskAccess(relative) ? [path, path.resolvingSymlinksInPath()] : [path]
+            }
             .contains { protected in candidates.contains { DiskMeasure.overlaps(protected, $0) } }
     }
 
-    /// `relativePath` is relative to the home folder, like "Documents/code".
+    /// `relativePath` is relative to the home folder, like "Documents/code". Case-insensitive, like
+    /// the default APFS volume, so a link to ~/documents counts too.
     public static func needsFullDiskAccess(_ relativePath: String) -> Bool {
-        protectedPrefixes.contains { relativePath == $0 || relativePath.hasPrefix($0 + "/") }
+        let path = relativePath.lowercased()
+        return protectedPrefixes.lazy.map { $0.lowercased() }.contains { path == $0 || path.hasPrefix($0 + "/") }
     }
 
     /// True if `url`, or anywhere its symlinks lead, is inside a protected location. Even looking up a
@@ -192,9 +196,12 @@ public enum Catalog {
             defer { free(pointer) }
             return String(cString: pointer)
         }
-        let homes = Set(([home.path] + (real.map { [$0] } ?? [])).map { $0.hasSuffix("/") ? $0 : $0 + "/" })
+        // /System/Volumes/Data is the same home folder under another name.
+        let names = [home.path] + (real.map { [$0, "/System/Volumes/Data" + $0] } ?? [])
+        let homes = Set(names.map { ($0.hasSuffix("/") ? $0 : $0 + "/").lowercased() })
         func isProtected(_ path: String) -> Bool {
-            homes.contains { (path + "/").hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
+            let lowered = (path + "/").lowercased()
+            return homes.contains { lowered.hasPrefix($0) && needsFullDiskAccess(String(path.dropFirst($0.count))) }
         }
         // Plain string paths: standardizedFileURL rewrites /private/var back to /var, which would loop.
         func components(_ path: String) -> [String] { path.split(separator: "/").map(String.init).reversed() }

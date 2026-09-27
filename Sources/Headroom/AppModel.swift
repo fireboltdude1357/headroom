@@ -36,7 +36,8 @@ final class AppModel {
     /// Read at launch, and every second while onboarding waits for the switch.
     var hasFullDiskAccess = FullDiskAccess.isGranted
     /// True until the first-launch onboarding ends with a scan or a skip.
-    var showOnboarding = !UserDefaults.standard.bool(forKey: Prefs.onboarded)
+    /// People who scanned before onboarding existed skip it.
+    var showOnboarding = false
 
     var sidebar: SidebarItem? = .overview
     var selected: Set<String> = []
@@ -59,6 +60,7 @@ final class AppModel {
         history = HistoryStore(file: AppFiles.history)
         trashLog = TrashLog(file: AppFiles.trashLog)
         scan = Self.loadLastScan()
+        showOnboarding = scan == nil && !UserDefaults.standard.bool(forKey: Prefs.onboarded)
     }
 
     private static func loadLastScan() -> ScanResult? {
@@ -188,6 +190,7 @@ final class AppModel {
         expanded = []
         summary = nil
         scan = Self.loadLastScan()
+        showOnboarding = scan == nil && !UserDefaults.standard.bool(forKey: Prefs.onboarded)
     }
 
     func runScan() async {

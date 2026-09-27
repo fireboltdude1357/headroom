@@ -51,7 +51,8 @@ struct MenuBarView: View {
                 Button(model.isScanning ? (model.scanProgress ?? "Scanning") : "Scan now") {
                     Task { await model.runScan() }
                 }
-                .disabled(model.isBusy)
+                // Onboarding starts the first scan itself once access is on.
+                .disabled(model.isBusy || model.showOnboarding)
                 Spacer()
             }
 

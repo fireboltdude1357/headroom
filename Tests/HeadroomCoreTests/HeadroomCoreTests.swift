@@ -296,5 +296,19 @@ struct FolderTrash: Trasher {
 
         try box.file("plain/readme.md")
         #expect(!Catalog.needsFullDiskAccess(box.root.appending(path: "plain"), home: box.root))
+
+        // APFS ignores case by default, so ~/documents is Documents.
+        try FileManager.default.createSymbolicLink(atPath: box.root.appending(path: "lower").path, withDestinationPath: "documents")
+        #expect(Catalog.needsFullDiskAccess(box.root.appending(path: "lower"), home: box.root))
+    }
+
+    @Test func cleanupStillFollowsMovedSimulatorDevices() throws {
+        // Simulator devices moved to another drive and linked back must still be off-limits.
+        let box = try Sandbox()
+        let external = try box.file("external/Devices/ABC/device.plist").deletingLastPathComponent().deletingLastPathComponent()
+        try box.file("home/Library/Developer/CoreSimulator/keep")
+        try FileManager.default.createSymbolicLink(at: box.root.appending(path: "home/Library/Developer/CoreSimulator/Devices"),
+                                                   withDestinationURL: external)
+        #expect(Catalog.isProtected(external.appending(path: "ABC"), home: box.root.appending(path: "home")))
     }
 }

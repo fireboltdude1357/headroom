@@ -31,8 +31,13 @@ struct OnboardingView: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Image(systemName: "switch.2").foregroundStyle(.secondary)
-                Text("In the list that opens, turn on **Headroom**. Headroom continues on its own once it's on.")
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("In the list that opens, turn on **Headroom**. Headroom continues on its own once it's on.")
+                    Text("Not in the list? Click + below it and choose Headroom from Applications.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -57,6 +62,8 @@ struct OnboardingView: View {
                         .foregroundStyle(.secondary)
                     Button("Restart Headroom") { FullDiskAccess.relaunch() }
                         .buttonStyle(.link)
+                        // `swift run` has no app bundle to relaunch.
+                        .disabled(Bundle.main.bundleIdentifier == nil)
                 }
                 .font(.callout)
             }

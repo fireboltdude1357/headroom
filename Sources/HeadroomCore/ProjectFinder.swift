@@ -92,6 +92,9 @@ public struct ProjectFinder: Sendable {
         for rule in BuildFolderRule.all where nameSet.contains(rule.folder) {
             guard let marker = rule.projectMarkers.first(where: nameSet.contains) else { continue }
             let folder = dir.appending(path: rule.folder, directoryHint: .isDirectory)
+            // A build folder that is a symlink may point into Documents; opening it could raise a prompt.
+            let type = (try? FileManager.default.attributesOfItem(atPath: folder.path))?[.type] as? FileAttributeType
+            guard type != .typeSymbolicLink else { continue }
             var innerMarker: URL?
             if !rule.innerMarkers.isEmpty {
                 let inner = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []

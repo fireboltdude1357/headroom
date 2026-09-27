@@ -203,7 +203,9 @@ enum FullDiskAccess {
     static func relaunch() {
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+        // Quit only once the new copy is running, so a failed launch doesn't just close Headroom.
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { app, error in
+            guard app != nil, error == nil else { return }
             DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
