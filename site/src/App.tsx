@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Shot, type ShotName } from "./Shot";
+import { trackDownload, type DownloadPlacement } from "./analytics";
 
 const download = { href: "/Headroom.dmg", note: "macOS 14 or later · Apple silicon and Intel · 1.9 MB" };
 
@@ -50,11 +51,12 @@ function Heading({ label, title, lead }: { label: string; title: string; lead?: 
   );
 }
 
-function DownloadButton() {
+function DownloadButton({ placement }: { placement: DownloadPlacement }) {
   return (
     <a
       href={download.href}
       download
+      onClick={() => trackDownload(placement)}
       className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-3 font-semibold text-white hover:bg-accent-strong"
     >
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -104,7 +106,7 @@ function Nav() {
             </a>
           ))}
         </nav>
-        <a href={download.href} download className="text-sm font-semibold text-accent hover:underline dark:text-accent-bright">
+        <a href={download.href} download onClick={() => trackDownload("nav")} className="text-sm font-semibold text-accent hover:underline dark:text-accent-bright">
           Download
         </a>
       </Container>
@@ -143,7 +145,7 @@ function Hero() {
             cost you, and moves only what you pick to the Trash.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-            <DownloadButton />
+            <DownloadButton placement="hero" />
             <a href="#how" className="text-sm font-medium text-ink-muted hover:text-ink dark:text-ink-muted-dark dark:hover:text-ink-dark">
               How it works ↓
             </a>
@@ -313,7 +315,8 @@ function FinePrint() {
   const rows: [string, string][] = [
     ["Price", "Free. No license key, no subscription, and it runs on as many Macs as you like."],
     ["Network", "None. No update check, no license check, no crash reports. A firewall will show nothing."],
-    ["Account and analytics", "Neither. The app keeps three small JSON files in Application Support: the last scan, scan history and the Trash log."],
+    ["Account and analytics", "The app has neither. It keeps three small JSON files in Application Support: the last scan, scan history and the Trash log."],
+    ["This website", "Counts visits and Download clicks with PostHog. No cookies, no session recording, and IP addresses are dropped. The app itself sends nothing."],
     ["What it reads", "File names, sizes and dates. It never opens your documents, photos or messages."],
     ["Full Disk Access", "Optional. Without it, Headroom skips Mail, Messages, device backups, app containers, and your Documents, Desktop and Downloads folders, and lists what it couldn't read."],
     ["Signing", "Signed with an Apple Developer ID and notarized by Apple, so macOS opens it without a warning."],
@@ -408,7 +411,7 @@ function Footer() {
           </p>
         </div>
         <div className="sm:text-right">
-          <DownloadButton />
+          <DownloadButton placement="footer" />
           <p className="mt-3 text-sm text-ink-muted dark:text-ink-muted-dark">{download.note}</p>
         </div>
       </Container>

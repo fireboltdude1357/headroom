@@ -1,0 +1,3 @@
+allowBuilds:
+  # Its install script only prints a donation message.
+  core-js: false
